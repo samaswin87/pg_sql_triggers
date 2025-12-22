@@ -1,0 +1,301 @@
+<div style="margin-bottom: 2rem;">
+  <h2><%= @trigger.trigger_name %></h2>
+  <p style="color: #6c757d;">
+    Table: <strong><%= @trigger.table_name %></strong> |
+    Version: <strong><%= @trigger.version %></strong> |
+    Source: <span class="badge badge-info"><%= @trigger.source %></span>
+  </p>
+</div>
+
+<!-- Tab Navigation -->
+<div style="border-bottom: 2px solid #dee2e6; margin-bottom: 2rem;">
+  <div style="display: flex; gap: 1rem;">
+    <a href="#overview" class="tab-link active" data-tab="overview"
+       style="padding: 0.75rem 1rem; border-bottom: 2px solid #007bff; margin-bottom: -2px; font-weight: 600; color: #007bff; cursor: pointer; text-decoration: none;">
+      Overview
+    </a>
+    <a href="#testing" class="tab-link" data-tab="testing"
+       style="padding: 0.75rem 1rem; color: #6c757d; cursor: pointer; text-decoration: none;">
+      Testing
+    </a>
+    <a href="#audit" class="tab-link" data-tab="audit"
+       style="padding: 0.75rem 1rem; color: #6c757d; cursor: pointer; text-decoration: none;">
+      Audit History
+    </a>
+  </div>
+</div>
+
+<!-- Tab Content: Overview -->
+<div id="tab-overview" class="tab-content">
+  <div style="background: white; padding: 1.5rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+    <h3 style="margin-top: 0;">Status</h3>
+    <p>
+      <% if @trigger.enabled %>
+        <span class="badge badge-success">Enabled</span>
+      <% else %>
+        <span class="badge badge-danger">Disabled</span>
+      <% end %>
+    </p>
+
+    <h4>Definition</h4>
+    <% if @trigger.definition.present? %>
+      <pre style="background: #f8f9fa; padding: 1rem; border-radius: 4px; overflow-x: auto;"><code><%= JSON.pretty_generate(JSON.parse(@trigger.definition)) %></code></pre>
+    <% end %>
+
+    <% if @trigger.function_body.present? %>
+      <h4>Function Body</h4>
+      <pre style="background: #f8f9fa; padding: 1rem; border-radius: 4px; overflow-x: auto;"><code><%= @trigger.function_body %></code></pre>
+    <% end %>
+  </div>
+
+  <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+    <% unless @trigger.enabled %>
+      <%= button_to "Enable Trigger", enable_trigger_path(@trigger), method: :post, class: "btn btn-success" %>
+    <% else %>
+      <%= button_to "Disable Trigger", disable_trigger_path(@trigger), method: :post, class: "btn", style: "background: #6c757d; color: white;" %>
+    <% end %>
+    <%= link_to "Back to List", triggers_path, class: "btn", style: "background: #6c757d; color: white; text-decoration: none;" %>
+  </div>
+</div>
+
+<!-- Tab Content: Testing -->
+<div id="tab-testing" class="tab-content" style="display: none;">
+  <h3>Trigger Testing Tools</h3>
+  <p style="color: #6c757d; margin-bottom: 2rem;">
+    Test your trigger safely before applying it to production. All tests run in transactions and automatically rollback.
+  </p>
+
+  <!-- Test 1: Syntax Validation -->
+  <div style="background: white; padding: 1.5rem; margin-bottom: 1rem; border-radius: 4px; border: 1px solid #dee2e6;">
+    <h4 style="margin-top: 0;">1. Syntax Validation</h4>
+    <p style="color: #6c757d;">Validate DSL structure, function syntax, and WHEN conditions without executing anything.</p>
+
+    <%= button_to "Run Syntax Validation",
+        test_syntax_trigger_path(@trigger),
+        method: :post,
+        class: "btn btn-primary",
+        remote: true,
+        data: { "result-target": "syntax-results" } %>
+
+    <div id="syntax-results" style="margin-top: 1rem;"></div>
+  </div>
+
+  <!-- Test 2: Dry Run -->
+  <div style="background: white; padding: 1.5rem; margin-bottom: 1rem; border-radius: 4px; border: 1px solid #dee2e6;">
+    <h4 style="margin-top: 0;">2. Dry Run (Preview SQL)</h4>
+    <p style="color: #6c757d;">Generate and preview the SQL that would be executed without making any changes.</p>
+
+    <%= button_to "Generate SQL Preview",
+        test_dry_run_trigger_path(@trigger),
+        method: :post,
+        class: "btn btn-primary",
+        remote: true,
+        data: { "result-target": "dry-run-results" } %>
+
+    <div id="dry-run-results" style="margin-top: 1rem;"></div>
+  </div>
+
+  <!-- Test 3: Safe Execution -->
+  <div style="background: white; padding: 1.5rem; margin-bottom: 1rem; border-radius: 4px; border: 1px solid #dee2e6;">
+    <h4 style="margin-top: 0;">3. Safe Test Execution</h4>
+    <p style="color: #6c757d;">Execute the trigger in a transaction and automatically rollback. Perfect for testing!</p>
+
+    <%= form_with url: test_safe_execute_trigger_path(@trigger), method: :post, id: "safe-execute-form" do |f| %>
+      <div style="margin-bottom: 1rem;">
+        <%= f.label :test_data, "Test Data (JSON)", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
+        <%= f.text_area :test_data,
+            placeholder: '{"column1": "value1", "column2": 123}',
+            rows: 3,
+            style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; font-family: monospace;" %>
+        <small style="color: #6c757d;">Optional: Provide test data for INSERT test</small>
+      </div>
+
+      <%= f.submit "Run Safe Test", class: "btn btn-success" %>
+    <% end %>
+
+    <div id="safe-execute-results" style="margin-top: 1rem;"></div>
+  </div>
+
+  <!-- Test 4: Function Only -->
+  <div style="background: white; padding: 1.5rem; margin-bottom: 1rem; border-radius: 4px; border: 1px solid #dee2e6;">
+    <h4 style="margin-top: 0;">4. Test Function Only</h4>
+    <p style="color: #6c757d;">Test only the PL/pgSQL function without creating the trigger.</p>
+
+    <%= button_to "Test Function",
+        test_function_trigger_path(@trigger),
+        method: :post,
+        class: "btn btn-primary",
+        remote: true,
+        data: { "result-target": "function-test-results" } %>
+
+    <div id="function-test-results" style="margin-top: 1rem;"></div>
+  </div>
+</div>
+
+<!-- Tab Content: Audit -->
+<div id="tab-audit" class="tab-content" style="display: none;">
+  <h3>Audit History</h3>
+
+  <% if @audit_logs.any? %>
+    <table>
+      <thead>
+        <tr>
+          <th>Action</th>
+          <th>Actor</th>
+          <th>Success</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @audit_logs.each do |log| %>
+          <tr>
+            <td><%= log.action %></td>
+            <td><%= log.actor_type %> (<%= log.actor_id %>)</td>
+            <td>
+              <% if log.success %>
+                <span class="badge badge-success">Success</span>
+              <% else %>
+                <span class="badge badge-danger">Failed</span>
+              <% end %>
+            </td>
+            <td><%= log.executed_at&.strftime("%Y-%m-%d %H:%M:%S") %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p style="color: #6c757d;">No audit logs yet.</p>
+  <% end %>
+</div>
+
+<script>
+// Simple tab switching
+document.querySelectorAll('.tab-link').forEach(link => {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    const tabName = e.target.dataset.tab;
+
+    // Update active states
+    document.querySelectorAll('.tab-link').forEach(l => {
+      l.style.borderBottom = 'none';
+      l.style.color = '#6c757d';
+      l.style.fontWeight = 'normal';
+    });
+    e.target.style.borderBottom = '2px solid #007bff';
+    e.target.style.color = '#007bff';
+    e.target.style.fontWeight = '600';
+    e.target.style.marginBottom = '-2px';
+
+    // Show/hide content
+    document.querySelectorAll('.tab-content').forEach(content => {
+      content.style.display = 'none';
+    });
+    document.getElementById('tab-' + tabName).style.display = 'block';
+  });
+});
+
+// Handle AJAX responses for testing
+document.addEventListener('ajax:success', (event) => {
+  const [data, status, xhr] = event.detail;
+  const button = event.target;
+  const resultTarget = button.dataset.resultTarget;
+
+  if (resultTarget) {
+    const resultDiv = document.getElementById(resultTarget);
+    resultDiv.innerHTML = formatTestResults(data);
+  }
+});
+
+document.addEventListener('ajax:error', (event) => {
+  const button = event.target;
+  const resultTarget = button.dataset.resultTarget;
+
+  if (resultTarget) {
+    const resultDiv = document.getElementById(resultTarget);
+    resultDiv.innerHTML = '<div class="alert alert-danger">Test failed. Check server logs for details.</div>';
+  }
+});
+
+// Format test results as HTML
+function formatTestResults(data) {
+  let html = '<div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; border: 1px solid #dee2e6; margin-top: 1rem;">';
+
+  if (data.success !== undefined) {
+    if (data.success || data.overall_valid) {
+      html += '<div class="alert alert-success">✓ Test passed!</div>';
+    } else {
+      html += '<div class="alert alert-danger">✗ Test failed</div>';
+    }
+  }
+
+  if (data.output && data.output.length > 0) {
+    html += '<h5>Output:</h5><pre><code>' + data.output.join('\n') + '</code></pre>';
+  }
+
+  if (data.errors && data.errors.length > 0) {
+    html += '<h5>Errors:</h5><pre style="color: #dc3545;"><code>' + data.errors.join('\n') + '</code></pre>';
+  }
+
+  if (data.sql_parts) {
+    html += '<h5>Generated SQL:</h5>';
+    data.sql_parts.forEach(part => {
+      html += '<p><strong>' + part.type + ':</strong> ' + part.description + '</p>';
+      html += '<pre><code>' + part.sql + '</code></pre>';
+    });
+  }
+
+  if (data.dsl) {
+    html += '<h5>DSL Validation:</h5>';
+    html += '<p>Valid: ' + (data.dsl.valid ? '✓' : '✗') + '</p>';
+    if (data.dsl.errors && data.dsl.errors.length > 0) {
+      html += '<pre style="color: #dc3545;"><code>' + data.dsl.errors.join('\n') + '</code></pre>';
+    }
+  }
+
+  if (data.function) {
+    html += '<h5>Function Validation:</h5>';
+    html += '<p>Valid: ' + (data.function.valid ? '✓' : '✗') + '</p>';
+    if (data.function.error) {
+      html += '<pre style="color: #dc3545;"><code>' + data.function.error + '</code></pre>';
+    }
+  }
+
+  if (data.condition) {
+    html += '<h5>Condition Validation:</h5>';
+    html += '<p>Valid: ' + (data.condition.valid ? '✓' : '✗') + '</p>';
+    if (data.condition.error) {
+      html += '<pre style="color: #dc3545;"><code>' + data.condition.error + '</code></pre>';
+    }
+  }
+
+  html += '</div>';
+  return html;
+}
+
+// Handle safe execute form submission
+document.getElementById('safe-execute-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const form = e.target;
+  const formData = new FormData(form);
+  const resultDiv = document.getElementById('safe-execute-results');
+
+  resultDiv.innerHTML = '<p style="color: #6c757d;">Running test...</p>';
+
+  try {
+    const response = await fetch(form.action, {
+      method: 'POST',
+      headers: {
+        'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content,
+        'Accept': 'application/json'
+      },
+      body: formData
+    });
+
+    const data = await response.json();
+    resultDiv.innerHTML = formatTestResults(data);
+  } catch (error) {
+    resultDiv.innerHTML = '<div class="alert alert-danger">Test failed: ' + error.message + '</div>';
+  }
+});
+</script>

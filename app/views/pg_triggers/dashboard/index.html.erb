@@ -1,0 +1,74 @@
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+  <h2 style="margin: 0;">Trigger Dashboard</h2>
+  <%= link_to "Generate New Trigger", new_generator_path,
+      class: "btn btn-success",
+      style: "font-size: 1rem; padding: 0.75rem 1.5rem;" %>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+  <div style="background: white; padding: 1.5rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <div style="font-size: 2rem; font-weight: 600; color: #007bff;"><%= @stats[:total] %></div>
+    <div style="color: #6c757d;">Total Triggers</div>
+  </div>
+
+  <div style="background: white; padding: 1.5rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <div style="font-size: 2rem; font-weight: 600; color: #28a745;"><%= @stats[:enabled] %></div>
+    <div style="color: #6c757d;">Enabled</div>
+  </div>
+
+  <div style="background: white; padding: 1.5rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <div style="font-size: 2rem; font-weight: 600; color: #6c757d;"><%= @stats[:disabled] %></div>
+    <div style="color: #6c757d;">Disabled</div>
+  </div>
+
+  <div style="background: white; padding: 1.5rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+    <div style="font-size: 2rem; font-weight: 600; color: #ffc107;"><%= @stats[:drifted] %></div>
+    <div style="color: #6c757d;">Drifted</div>
+  </div>
+</div>
+
+<% if @triggers.any? %>
+  <h3>Recent Triggers</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Trigger Name</th>
+        <th>Table</th>
+        <th>Version</th>
+        <th>Status</th>
+        <th>Source</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @triggers.limit(10).each do |trigger| %>
+        <tr>
+          <td><%= link_to trigger.trigger_name, trigger_path(trigger) %></td>
+          <td><%= trigger.table_name %></td>
+          <td><%= trigger.version %></td>
+          <td>
+            <% if trigger.enabled %>
+              <span class="badge badge-success">Enabled</span>
+            <% else %>
+              <span class="badge badge-danger">Disabled</span>
+            <% end %>
+          </td>
+          <td><span class="badge badge-info"><%= trigger.source %></span></td>
+          <td>
+            <%= link_to "View", trigger_path(trigger), class: "btn btn-primary", style: "padding: 0.25rem 0.5rem; font-size: 0.875rem;" %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <div style="margin-top: 1rem;">
+    <%= link_to "View All Triggers →", triggers_path, style: "color: #007bff; text-decoration: none;" %>
+  </div>
+<% else %>
+  <div style="background: #e7f3ff; border-left: 4px solid #007bff; padding: 1.5rem; border-radius: 4px;">
+    <h3 style="margin-top: 0;">No triggers yet</h3>
+    <p style="margin-bottom: 1rem;">Get started by generating your first trigger using the form-based wizard.</p>
+    <%= link_to "Generate New Trigger", new_generator_path, class: "btn btn-primary" %>
+  </div>
+<% end %>

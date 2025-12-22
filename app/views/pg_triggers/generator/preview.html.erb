@@ -1,0 +1,56 @@
+<h2>Preview Generated Trigger</h2>
+
+<div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 1rem; margin-bottom: 2rem;">
+  <strong>Review before generating:</strong>
+  <ul style="margin: 0.5rem 0 0 1rem; padding: 0;">
+    <li>DSL file will be created at: <code><%= @file_paths[:dsl] %></code></li>
+    <% if @file_paths[:function] %>
+      <li>Function stub will be created at: <code><%= @file_paths[:function] %></code></li>
+    <% end %>
+    <li>Trigger will be registered with source: <strong>generated</strong></li>
+  </ul>
+</div>
+
+<!-- DSL Preview -->
+<div style="margin-bottom: 2rem;">
+  <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+    <span>DSL Definition</span>
+    <span class="badge badge-info">Ruby</span>
+  </h3>
+  <pre style="background: #f8f9fa; padding: 1rem; border-radius: 4px; overflow-x: auto; border: 1px solid #dee2e6;"><code><%= @dsl_content %></code></pre>
+</div>
+
+<!-- Function Preview -->
+<% if @function_content %>
+  <div style="margin-bottom: 2rem;">
+    <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+      <span>PL/pgSQL Function Stub</span>
+      <span class="badge badge-info">SQL</span>
+    </h3>
+    <pre style="background: #f8f9fa; padding: 1rem; border-radius: 4px; overflow-x: auto; border: 1px solid #dee2e6;"><code><%= @function_content %></code></pre>
+  </div>
+<% end %>
+
+<!-- Actions -->
+<%= form_with url: generator_index_path, method: :post, scope: :pg_triggers_generator_form do |f| %>
+  <%= f.hidden_field :trigger_name, value: @form.trigger_name %>
+  <%= f.hidden_field :table_name, value: @form.table_name %>
+  <%= f.hidden_field :function_name, value: @form.function_name %>
+  <%= f.hidden_field :version, value: @form.version %>
+  <%= f.hidden_field :enabled, value: @form.enabled %>
+  <%= f.hidden_field :condition, value: @form.condition %>
+  <%= f.hidden_field :generate_function_stub, value: @form.generate_function_stub %>
+  <% @form.events.each do |event| %>
+    <%= f.hidden_field "events[]", value: event %>
+  <% end %>
+  <% @form.environments.each do |env| %>
+    <%= f.hidden_field "environments[]", value: env %>
+  <% end %>
+
+  <div style="display: flex; gap: 1rem;">
+    <%= f.submit "Generate Files", class: "btn btn-success",
+        data: { confirm: "This will create files on disk and register the trigger. Continue?" } %>
+    <%= link_to "Back to Edit", new_generator_path, class: "btn", style: "background: #6c757d; color: white; text-decoration: none;" %>
+    <%= link_to "Cancel", root_path, class: "btn", style: "background: #6c757d; color: white; text-decoration: none;" %>
+  </div>
+<% end %>

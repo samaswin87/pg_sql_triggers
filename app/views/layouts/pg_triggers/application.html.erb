@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PgTriggers - PostgreSQL Trigger Control Plane</title>
+  <%= csrf_meta_tags %>
+  <%= csp_meta_tag %>
+
+  <%= stylesheet_link_tag "pg_triggers/application", media: "all" %>
+  <%= javascript_include_tag "pg_triggers/application" %>
+</head>
+
+<body>
+  <nav style="background: #2c3e50; padding: 1rem; color: white;">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+      <h1 style="margin: 0; font-size: 1.5rem;">
+        <%= link_to "PgTriggers", root_path, style: "color: white; text-decoration: none;" %>
+      </h1>
+      <div>
+        <%= link_to "Dashboard", root_path, style: "color: white; margin-right: 1rem;" %>
+        <%= link_to "Triggers", triggers_path, style: "color: white; margin-right: 1rem;" %>
+        <%= link_to "Generator", new_generator_path, style: "color: white; margin-right: 1rem;" %>
+        <%= link_to "Audit Logs", audit_logs_path, style: "color: white;" %>
+      </div>
+    </div>
+  </nav>
+
+  <main style="max-width: 1200px; margin: 2rem auto; padding: 0 1rem;">
+    <% if flash[:notice] %>
+      <div style="background: #d4edda; color: #155724; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+        <%= flash[:notice] %>
+      </div>
+    <% end %>
+
+    <% if flash[:alert] %>
+      <div style="background: #f8d7da; color: #721c24; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+        <%= flash[:alert] %>
+      </div>
+    <% end %>
+
+    <%= yield %>
+  </main>
+
+  <footer style="background: #ecf0f1; padding: 2rem; margin-top: 4rem; text-align: center;">
+    <p style="margin: 0; color: #7f8c8d;">
+      PgTriggers - A PostgreSQL Trigger Control Plane for Rails
+    </p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<h2>Generate New Trigger</h2>
+
+<p style="color: #6c757d; margin-bottom: 2rem;">
+  Create a new PostgreSQL trigger using the form-based wizard.
+  Generated triggers are <strong>disabled by default</strong> and must be explicitly enabled.
+</p>
+
+<%= form_with model: @form, url: preview_generator_index_path, method: :post,
+              scope: :pg_triggers_generator_form,
+              id: "trigger-generator-form",
+              html: { style: "background: white; padding: 2rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" } do |f| %>
+
+  <!-- Section 1: Basic Information -->
+  <fieldset style="border: 1px solid #dee2e6; padding: 1rem; margin-bottom: 2rem; border-radius: 4px;">
+    <legend style="font-weight: 600; color: #495057; padding: 0 0.5rem;">Basic Information</legend>
+
+    <div style="margin-bottom: 1rem;">
+      <%= f.label :trigger_name, "Trigger Name *", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
+      <%= f.text_field :trigger_name,
+          placeholder: "e.g., device_readings_rpm_guard",
+          required: true,
+          style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" %>
+      <small style="color: #6c757d;">Lowercase, underscores only</small>
+      <% if @form.errors[:trigger_name].any? %>
+        <div style="color: #dc3545; margin-top: 0.25rem;"><%= @form.errors[:trigger_name].first %></div>
+      <% end %>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <%= f.label :table_name, "Table Name *", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
+      <%= f.select :table_name,
+          options_for_select(@available_tables.map { |t| [t, t] }, @form.table_name),
+          { include_blank: "Select a table..." },
+          {
+            required: true,
+            id: "table-name-select",
+            style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;"
+          } %>
+      <div id="table-validation-message" style="margin-top: 0.25rem;"></div>
+      <% if @form.errors[:table_name].any? %>
+        <div style="color: #dc3545; margin-top: 0.25rem;"><%= @form.errors[:table_name].first %></div>
+      <% end %>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <%= f.label :function_name, "Function Name *", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
+      <%= f.text_field :function_name,
+          placeholder: "e.g., validate_rpm_rules",
+          required: true,
+          style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" %>
+      <small style="color: #6c757d;">The PL/pgSQL function to invoke</small>
+      <% if @form.errors[:function_name].any? %>
+        <div style="color: #dc3545; margin-top: 0.25rem;"><%= @form.errors[:function_name].first %></div>
+      <% end %>
+    </div>
+  </fieldset>
+
+  <!-- Section 2: Trigger Events -->
+  <fieldset style="border: 1px solid #dee2e6; padding: 1rem; margin-bottom: 2rem; border-radius: 4px;">
+    <legend style="font-weight: 600; color: #495057; padding: 0 0.5rem;">Trigger Events *</legend>
+
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+      <% %w[insert update delete truncate].each do |event| %>
+        <label style="display: flex; align-items: center; cursor: pointer;">
+          <%= f.check_box :events, { multiple: true }, event, nil %>
+          <span style="margin-left: 0.25rem; text-transform: uppercase;"><%= event %></span>
+        </label>
+      <% end %>
+    </div>
+    <small style="color: #6c757d; display: block; margin-top: 0.5rem;">
+      Select one or more events that will trigger the function
+    </small>
+    <% if @form.errors[:events].any? %>
+      <div style="color: #dc3545; margin-top: 0.25rem;"><%= @form.errors[:events].first %></div>
+    <% end %>
+  </fieldset>
+
+  <!-- Section 3: Configuration -->
+  <fieldset style="border: 1px solid #dee2e6; padding: 1rem; margin-bottom: 2rem; border-radius: 4px;">
+    <legend style="font-weight: 600; color: #495057; padding: 0 0.5rem;">Configuration</legend>
+
+    <div style="margin-bottom: 1rem;">
+      <%= f.label :version, "Version", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
+      <%= f.number_field :version, value: @form.version || 1, min: 1,
+          style: "width: 100px; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" %>
+      <small style="color: #6c757d; display: block; margin-top: 0.25rem;">
+        Default: 1 (increment for future changes)
+      </small>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <%= f.label :environments, "Target Environments", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+        <% %w[development test staging production].each do |env| %>
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <%= f.check_box :environments, { multiple: true }, env, nil %>
+            <span style="margin-left: 0.25rem;"><%= env.titleize %></span>
+          </label>
+        <% end %>
+      </div>
+      <small style="color: #6c757d; display: block; margin-top: 0.5rem;">
+        Leave empty to apply to all environments
+      </small>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <%= f.label :condition, "WHEN Condition (Optional)", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
+      <%= f.text_area :condition,
+          placeholder: "e.g., NEW.rpm > 5000",
+          rows: 2,
+          style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; font-family: monospace;" %>
+      <small style="color: #6c757d;">
+        Optional SQL condition for trigger firing
+      </small>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <label style="display: flex; align-items: center; cursor: pointer;">
+        <%= f.check_box :enabled %>
+        <span style="margin-left: 0.25rem; font-weight: 500;">Enable trigger after creation</span>
+      </label>
+      <small style="color: #6c757d; display: block; margin-left: 1.5rem;">
+        Recommended: Leave disabled for testing
+      </small>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <label style="display: flex; align-items: center; cursor: pointer;">
+        <%= f.check_box :generate_function_stub, checked: @form.generate_function_stub %>
+        <span style="margin-left: 0.25rem; font-weight: 500;">Generate PL/pgSQL function stub</span>
+      </label>
+      <small style="color: #6c757d; display: block; margin-left: 1.5rem;">
+        Creates a template function file you can customize
+      </small>
+    </div>
+  </fieldset>
+
+  <!-- Actions -->
+  <div style="display: flex; gap: 1rem;">
+    <%= f.submit "Preview Generated Code", class: "btn btn-primary" %>
+    <%= link_to "Cancel", root_path, class: "btn", style: "background: #6c757d; color: white; text-decoration: none;" %>
+  </div>
+<% end %>
+
+<script>
+// Client-side validation for table selection
+document.getElementById('table-name-select')?.addEventListener('change', function(e) {
+  const tableName = e.target.value;
+  const messageDiv = document.getElementById('table-validation-message');
+
+  if (!tableName) {
+    messageDiv.innerHTML = '';
+    return;
+  }
+
+  messageDiv.innerHTML = '<span style="color: #6c757d;">Validating...</span>';
+
+  fetch('<%= validate_table_generator_index_path %>', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': document.querySelector('[name="csrf-token"]').content
+    },
+    body: JSON.stringify({ table_name: tableName })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.valid) {
+      messageDiv.innerHTML = '<span style="color: #28a745;">✓ Table exists (' + data.column_count + ' columns)</span>';
+    } else {
+      messageDiv.innerHTML = '<span style="color: #dc3545;">✗ Table not found in database</span>';
+    }
+  })
+  .catch(error => {
+    messageDiv.innerHTML = '<span style="color: #856404;">⚠ Validation unavailable</span>';
+  });
+});
+</script>
