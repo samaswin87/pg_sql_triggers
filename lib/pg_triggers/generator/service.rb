@@ -78,9 +78,10 @@ module PgTriggers
 
         def file_paths(form)
           # Note: These paths are relative to the host Rails app, not the gem
+          # Function body is required, so always create function file
           {
             dsl: "db/triggers/#{form.trigger_name}.rb",
-            function: form.generate_function_stub ? "db/triggers/functions/#{form.function_name}.sql" : nil
+            function: "db/triggers/functions/#{form.function_name}.sql"
           }
         end
 
@@ -99,7 +100,8 @@ module PgTriggers
 
           # Generate content
           dsl_content = generate_dsl(form)
-          function_content = generate_function_stub(form) if paths[:function]
+          # Use function_body (required field)
+          function_content = form.function_body
 
           # Write files
           File.write(full_dsl_path, dsl_content)

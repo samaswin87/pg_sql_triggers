@@ -54,10 +54,31 @@
       <%= f.text_field :function_name,
           placeholder: "e.g., validate_user_email",
           required: true,
+          id: "function-name-input",
           style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" %>
       <small style="color: #6c757d;">The PL/pgSQL function to invoke</small>
       <% if @form.errors[:function_name].any? %>
         <div style="color: #dc3545; margin-top: 0.25rem;"><%= @form.errors[:function_name].first %></div>
+      <% end %>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <%= f.label :function_body, "Function Body *", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
+      <% 
+        default_function_body = @form.function_body.presence || @form.default_function_body
+      %>
+      <%= f.text_area :function_body,
+          value: default_function_body,
+          placeholder: "CREATE OR REPLACE FUNCTION #{@form.function_name || 'function_name'}()\nRETURNS TRIGGER AS $$\nBEGIN\n  -- Your trigger logic here\n  RETURN NEW;\nEND;\n$$ LANGUAGE plpgsql;",
+          required: true,
+          id: "function-body-textarea",
+          rows: 12,
+          style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace; font-size: 0.875rem; line-height: 1.5; resize: vertical;" %>
+      <small style="color: #6c757d;">
+        Provide the complete PL/pgSQL function definition (BEGIN...END block).
+      </small>
+      <% if @form.errors[:function_body].any? %>
+        <div style="color: #dc3545; margin-top: 0.25rem;"><%= @form.errors[:function_body].first %></div>
       <% end %>
     </div>
   </fieldset>
@@ -150,6 +171,42 @@
 <% end %>
 
 <script>
+// Generate function body template
+function generateFunctionBody(functionName) {
+  return 'CREATE OR REPLACE FUNCTION ' + (functionName || 'function_name') + '()\n' +
+         'RETURNS TRIGGER AS $$\n' +
+         'BEGIN\n' +
+         '  -- Your trigger logic here\n' +
+         '  RETURN NEW;\n' +
+         'END;\n' +
+         '$$ LANGUAGE plpgsql;';
+}
+
+// Check if textarea value matches the template pattern (so we know it's still the default)
+function isTemplateValue(value) {
+  if (!value || value.trim() === '') return true;
+  // Check if it matches the template pattern
+  const templatePattern = /^CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+\w+\(\)\s+RETURNS\s+TRIGGER/i;
+  return templatePattern.test(value.trim());
+}
+
+// Update function body value and placeholder when function name changes
+document.getElementById('function-name-input')?.addEventListener('input', function(e) {
+  const functionName = e.target.value || 'function_name';
+  const functionBodyTextarea = document.getElementById('function-body-textarea');
+  if (functionBodyTextarea) {
+    const newTemplate = generateFunctionBody(functionName);
+    
+    // Update placeholder
+    functionBodyTextarea.placeholder = newTemplate;
+    
+    // Update value only if textarea is empty or matches template pattern
+    if (!functionBodyTextarea.value || isTemplateValue(functionBodyTextarea.value)) {
+      functionBodyTextarea.value = newTemplate;
+    }
+  }
+});
+
 // Client-side validation for table selection
 document.getElementById('table-name-select')?.addEventListener('change', function(e) {
   const tableName = e.target.value;

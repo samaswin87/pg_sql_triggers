@@ -3,20 +3,6 @@
 PgTriggers::Engine.routes.draw do
   root to: "dashboard#index"
 
-  resources :triggers, only: [:index, :show] do
-    member do
-      post :enable
-      post :disable
-      post :drop
-      post :re_execute
-      get :diff
-      post :test_syntax
-      post :test_dry_run
-      post :test_safe_execute
-      post :test_function
-    end
-  end
-
   resources :tables, only: [:index, :show]
 
   resources :generator, only: [:new, :create] do

@@ -62,14 +62,6 @@
                 <% end %>
               </p>
             </div>
-            <div style="display: flex; gap: 0.5rem;">
-              <%= link_to "View Details", trigger_path(trigger), class: "btn btn-primary", style: "padding: 0.25rem 0.5rem; font-size: 0.875rem;" %>
-              <% unless trigger.enabled %>
-                <%= button_to "Enable", enable_trigger_path(trigger), method: :post, class: "btn btn-success", style: "padding: 0.25rem 0.5rem; font-size: 0.875rem;" %>
-              <% else %>
-                <%= button_to "Disable", disable_trigger_path(trigger), method: :post, class: "btn", style: "background: #6c757d; color: white; padding: 0.25rem 0.5rem; font-size: 0.875rem;" %>
-              <% end %>
-            </div>
           </div>
           
           <% if trigger.definition.present? %>

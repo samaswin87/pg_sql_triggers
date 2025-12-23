@@ -6,34 +6,8 @@
 <!-- Statistics -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
   <div style="background: white; padding: 1.5rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-    <div style="font-size: 2rem; font-weight: 600; color: #007bff;"><%= @total_tables %></div>
-    <div style="color: #6c757d;">Total Tables</div>
-  </div>
-  <div style="background: white; padding: 1.5rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
     <div style="font-size: 2rem; font-weight: 600; color: #28a745;"><%= @tables_with_trigger_count %></div>
     <div style="color: #6c757d;">Tables with Triggers</div>
-  </div>
-  <div style="background: white; padding: 1.5rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-    <div style="font-size: 2rem; font-weight: 600; color: #6c757d;"><%= @tables_without_triggers %></div>
-    <div style="color: #6c757d;">Tables without Triggers</div>
-  </div>
-</div>
-
-<!-- Filter Tabs -->
-<div style="border-bottom: 2px solid #dee2e6; margin-bottom: 2rem;">
-  <div style="display: flex; gap: 1rem;">
-    <button onclick="filterTables('all')" id="filter-all" class="filter-btn active"
-            style="padding: 0.75rem 1rem; border: none; background: #007bff; color: white; border-radius: 4px 4px 0 0; cursor: pointer; font-weight: 600;">
-      All Tables (<%= @total_tables %>)
-    </button>
-    <button onclick="filterTables('with-triggers')" id="filter-with-triggers" class="filter-btn"
-            style="padding: 0.75rem 1rem; border: none; background: #6c757d; color: white; border-radius: 4px 4px 0 0; cursor: pointer;">
-      With Triggers (<%= @tables_with_trigger_count %>)
-    </button>
-    <button onclick="filterTables('without-triggers')" id="filter-without-triggers" class="filter-btn"
-            style="padding: 0.75rem 1rem; border: none; background: #6c757d; color: white; border-radius: 4px 4px 0 0; cursor: pointer;">
-      Without Triggers (<%= @tables_without_triggers %>)
-    </button>
   </div>
 </div>
 
@@ -52,9 +26,7 @@
       </thead>
       <tbody>
         <% @tables_with_triggers.each do |table| %>
-          <tr class="table-row" 
-              data-has-triggers="<%= table[:trigger_count] > 0 ? 'true' : 'false' %>"
-              style="<%= 'background: #f8f9fa;' if table[:trigger_count] > 0 %>">
+          <tr class="table-row">
             <td>
               <strong style="font-size: 1.1rem;"><%= table[:table_name] %></strong>
             </td>
@@ -124,38 +96,10 @@
   </div>
 <% else %>
   <div style="background: #e7f3ff; border-left: 4px solid #007bff; padding: 1.5rem; border-radius: 4px;">
-    <h3 style="margin-top: 0;">No tables found</h3>
-    <p style="margin-bottom: 1rem;">No tables were found in the database.</p>
+    <h3 style="margin-top: 0;">No tables with triggers found</h3>
+    <p style="margin-bottom: 1rem;">No tables with triggers were found in the database. Create your first trigger to get started.</p>
+    <%= link_to "Generate New Trigger", new_generator_path, class: "btn btn-primary" %>
   </div>
 <% end %>
 
-<script>
-function filterTables(filter) {
-  const rows = document.querySelectorAll('.table-row');
-  const buttons = document.querySelectorAll('.filter-btn');
-  
-  // Update button styles
-  buttons.forEach(btn => {
-    btn.style.background = '#6c757d';
-    btn.style.fontWeight = 'normal';
-  });
-  document.getElementById('filter-' + filter.replace('-', '-')).style.background = '#007bff';
-  document.getElementById('filter-' + filter.replace('-', '-')).style.fontWeight = '600';
-  
-  // Filter rows
-  rows.forEach(row => {
-    const hasTriggers = row.dataset.hasTriggers === 'true';
-    
-    if (filter === 'all') {
-      row.style.display = '';
-    } else if (filter === 'with-triggers' && hasTriggers) {
-      row.style.display = '';
-    } else if (filter === 'without-triggers' && !hasTriggers) {
-      row.style.display = '';
-    } else {
-      row.style.display = 'none';
-    }
-  });
-}
-</script>
 

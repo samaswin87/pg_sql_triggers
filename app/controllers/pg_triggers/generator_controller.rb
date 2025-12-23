@@ -18,8 +18,12 @@ module PgTriggers
       @form = PgTriggers::Generator::Form.new(generator_params)
 
       if @form.valid?
+        # Validate SQL function body (required field)
+        @sql_validation = validate_function_sql(@form)
+
         @dsl_content = PgTriggers::Generator::Service.generate_dsl(@form)
-        @function_content = PgTriggers::Generator::Service.generate_function_stub(@form)
+        # Use function_body (required)
+        @function_content = @form.function_body
         @file_paths = PgTriggers::Generator::Service.file_paths(@form)
 
         render :preview
@@ -35,10 +39,23 @@ module PgTriggers
       @form = PgTriggers::Generator::Form.new(generator_params)
 
       if @form.valid?
+        # Validate SQL function body (required field)
+        sql_validation = validate_function_sql(@form)
+        unless sql_validation[:valid]
+          flash[:alert] = "Cannot create trigger: SQL validation failed - #{sql_validation[:error]}"
+          @available_tables = fetch_available_tables
+          @dsl_content = PgTriggers::Generator::Service.generate_dsl(@form)
+          @function_content = @form.function_body
+          @file_paths = PgTriggers::Generator::Service.file_paths(@form)
+          @sql_validation = sql_validation
+          render :preview
+          return
+        end
+
         result = PgTriggers::Generator::Service.create_trigger(@form, actor: current_actor)
 
         if result[:success]
-          redirect_to trigger_path(result[:registry_id]),
+          redirect_to root_path,
                       notice: "Trigger generated successfully. Files created at #{result[:dsl_path]}"
         else
           flash[:alert] = "Generation failed: #{result[:error]}"
@@ -80,7 +97,7 @@ module PgTriggers
     def generator_params
       params.require(:pg_triggers_generator_form).permit(
         :trigger_name, :table_name, :function_name, :version,
-        :enabled, :condition, :generate_function_stub,
+        :enabled, :condition, :generate_function_stub, :function_body,
         events: [], environments: []
       )
     end
@@ -107,6 +124,21 @@ module PgTriggers
       table_name ||= params['table_name'] if params.key?('table_name')
       
       table_name
+    end
+
+    def validate_function_sql(form)
+      return nil if form.function_body.blank?
+
+      # Create a temporary trigger registry object for validation
+      temp_registry = PgTriggers::TriggerRegistry.new(
+        trigger_name: form.trigger_name,
+        function_body: form.function_body
+      )
+
+      validator = PgTriggers::Testing::SyntaxValidator.new(temp_registry)
+      validator.validate_function_syntax
+    rescue => e
+      { valid: false, error: "Validation error: #{e.message}" }
     end
   end
 end

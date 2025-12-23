@@ -3,10 +3,11 @@
 module PgTriggers
   class TablesController < ApplicationController
     def index
-      @tables_with_triggers = PgTriggers::DatabaseIntrospection.new.tables_with_triggers
+      all_tables = PgTriggers::DatabaseIntrospection.new.tables_with_triggers
+      # Only show tables that have at least one trigger
+      @tables_with_triggers = all_tables.select { |t| t[:trigger_count] > 0 }
       @total_tables = @tables_with_triggers.count
-      @tables_with_trigger_count = @tables_with_triggers.count { |t| t[:trigger_count] > 0 }
-      @tables_without_triggers = @tables_with_triggers.count { |t| t[:trigger_count] == 0 }
+      @tables_with_trigger_count = @tables_with_triggers.count
     end
 
     def show
