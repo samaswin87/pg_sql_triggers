@@ -54,11 +54,11 @@ This will:
 Create trigger definitions using the Ruby DSL:
 
 ```ruby
-# app/triggers/device_readings_guard.rb
-PgTriggers::DSL.pg_trigger "rpm_device_readings_guard" do
-  table :device_readings
+# app/triggers/users_email_validation.rb
+PgTriggers::DSL.pg_trigger "users_email_validation" do
+  table :users
   on :insert, :update
-  function :validate_rpm_rules
+  function :validate_user_email
 
   version 1
   enabled false
@@ -165,7 +165,7 @@ PgTriggers::Registry.enabled
 PgTriggers::Registry.disabled
 
 # Get triggers for a specific table
-PgTriggers::Registry.for_table(:device_readings)
+PgTriggers::Registry.for_table(:users)
 
 # Check for drift
 PgTriggers::Registry.diff

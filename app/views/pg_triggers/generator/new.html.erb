@@ -17,7 +17,7 @@
     <div style="margin-bottom: 1rem;">
       <%= f.label :trigger_name, "Trigger Name *", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
       <%= f.text_field :trigger_name,
-          placeholder: "e.g., device_readings_rpm_guard",
+          placeholder: "e.g., users_email_validation",
           required: true,
           style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" %>
       <small style="color: #6c757d;">Lowercase, underscores only</small>
@@ -52,7 +52,7 @@
     <div style="margin-bottom: 1rem;">
       <%= f.label :function_name, "Function Name *", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
       <%= f.text_field :function_name,
-          placeholder: "e.g., validate_rpm_rules",
+          placeholder: "e.g., validate_user_email",
           required: true,
           style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" %>
       <small style="color: #6c757d;">The PL/pgSQL function to invoke</small>
@@ -113,7 +113,7 @@
     <div style="margin-bottom: 1rem;">
       <%= f.label :condition, "WHEN Condition (Optional)", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
       <%= f.text_area :condition,
-          placeholder: "e.g., NEW.rpm > 5000",
+          placeholder: "e.g., NEW.email IS NOT NULL",
           rows: 2,
           style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; font-family: monospace;" %>
       <small style="color: #6c757d;">

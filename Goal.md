@@ -47,10 +47,10 @@ This gem **manages lifecycle**, not business logic.
 Developers declare triggers using Ruby DSL:
 
 ```ruby
-pg_trigger "rpm_device_readings_guard" do
-  table :device_readings
+pg_trigger "users_email_validation" do
+  table :users
   on :insert, :update
-  function :validate_rpm_rules
+  function :validate_user_email
 
   version 3
   enabled true
@@ -142,7 +142,7 @@ Provide console APIs:
 PgTrigger.list
 PgTrigger.enabled
 PgTrigger.disabled
-PgTrigger.for_table(:device_readings)
+PgTrigger.for_table(:users)
 PgTrigger.diff
 PgTrigger.validate!
 
