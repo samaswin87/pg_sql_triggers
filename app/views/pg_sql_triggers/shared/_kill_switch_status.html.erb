@@ -1,0 +1,30 @@
+<%# Kill Switch Status Indicator %>
+<%# Displays the current kill switch status and environment warning if applicable %>
+
+<% if kill_switch_active? %>
+  <div class="kill-switch-status active" style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 12px; margin-bottom: 16px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 20px;">🛡️</span>
+      <div>
+        <strong style="color: #856404;">Kill Switch Active</strong>
+        <p style="margin: 4px 0 0 0; font-size: 14px; color: #856404;">
+          Dangerous operations in <strong><%= current_environment %></strong> require confirmation.
+          All operations are logged and audited.
+        </p>
+      </div>
+    </div>
+  </div>
+<% else %>
+  <div class="kill-switch-status inactive" style="background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; padding: 12px; margin-bottom: 16px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 20px;">ℹ️</span>
+      <div>
+        <strong style="color: #0c5460;">Development Environment</strong>
+        <p style="margin: 4px 0 0 0; font-size: 14px; color: #0c5460;">
+          Kill switch is disabled in <strong><%= current_environment %></strong>.
+          Operations can be performed without confirmation.
+        </p>
+      </div>
+    </div>
+  </div>
+<% end %>

@@ -36,6 +36,9 @@ module PgSqlTriggers
     # POST /generator/create
     # Actually create the files and register in TriggerRegistry
     def create
+      # Check kill switch before generating trigger
+      check_kill_switch(operation: :ui_trigger_generate, confirmation: params[:confirmation_text])
+
       @form = PgSqlTriggers::Generator::Form.new(generator_params)
 
       if @form.valid?

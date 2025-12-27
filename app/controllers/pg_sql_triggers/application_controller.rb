@@ -9,6 +9,9 @@ module PgSqlTriggers
 
     before_action :check_permissions?
 
+    # Helper methods available in views
+    helper_method :current_environment, :kill_switch_active?
+
     private
 
     def check_permissions?
@@ -30,6 +33,42 @@ module PgSqlTriggers
 
     def current_user_id
       "unknown"
+    end
+
+    # ========== Kill Switch Helpers ==========
+
+    # Returns the current environment
+    def current_environment
+      Rails.env
+    end
+
+    # Checks if kill switch is active for the current environment
+    def kill_switch_active?
+      PgSqlTriggers::SQL::KillSwitch.active?(environment: current_environment)
+    end
+
+    # Checks kill switch before executing a dangerous operation
+    # Raises KillSwitchError if the operation is blocked
+    #
+    # @param operation [Symbol] The operation being performed
+    # @param confirmation [String, nil] Optional confirmation text from params
+    def check_kill_switch(operation:, confirmation: nil)
+      PgSqlTriggers::SQL::KillSwitch.check!(
+        operation: operation,
+        environment: current_environment,
+        confirmation: confirmation,
+        actor: current_actor
+      )
+    rescue PgSqlTriggers::KillSwitchError => e
+      flash[:error] = e.message
+      redirect_back_or_to(root_path) and return
+    end
+
+    # Before action to require kill switch override for an action
+    # Add to specific controller actions that need protection:
+    #   before_action -> { require_kill_switch_override(:operation_name) }, only: [:dangerous_action]
+    def require_kill_switch_override(operation, confirmation: nil)
+      check_kill_switch(operation: operation, confirmation: confirmation)
     end
   end
 end

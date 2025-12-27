@@ -78,7 +78,17 @@ module PgSqlTriggers
         end
       end
 
-      def run_up(target_version = nil)
+      def run_up(target_version = nil, confirmation: nil)
+        # Check kill switch before running migrations
+        # This provides protection when called directly from console
+        # When called from rake tasks, the ENV override will already be in place
+        PgSqlTriggers::SQL::KillSwitch.check!(
+          operation: :migrator_run_up,
+          environment: Rails.env,
+          confirmation: confirmation,
+          actor: { type: "Console", id: "Migrator.run_up" }
+        )
+
         if target_version
           # Apply a specific migration version
           migration_to_apply = migrations.find { |m| m.version == target_version }
@@ -102,7 +112,17 @@ module PgSqlTriggers
         end
       end
 
-      def run_down(target_version = nil)
+      def run_down(target_version = nil, confirmation: nil)
+        # Check kill switch before running migrations
+        # This provides protection when called directly from console
+        # When called from rake tasks, the ENV override will already be in place
+        PgSqlTriggers::SQL::KillSwitch.check!(
+          operation: :migrator_run_down,
+          environment: Rails.env,
+          confirmation: confirmation,
+          actor: { type: "Console", id: "Migrator.run_down" }
+        )
+
         current_ver = current_version
         return if current_ver.zero?
 

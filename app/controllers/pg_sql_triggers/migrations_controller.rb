@@ -5,6 +5,9 @@ module PgSqlTriggers
   # Provides actions to run migrations up, down, and redo
   class MigrationsController < ApplicationController
     def up
+      # Check kill switch before running migration
+      check_kill_switch(operation: :ui_migration_up, confirmation: params[:confirmation_text])
+
       target_version = params[:version]&.to_i
       PgSqlTriggers::Migrator.ensure_migrations_table!
 
@@ -29,6 +32,9 @@ module PgSqlTriggers
     end
 
     def down
+      # Check kill switch before rolling back migration
+      check_kill_switch(operation: :ui_migration_down, confirmation: params[:confirmation_text])
+
       target_version = params[:version]&.to_i
       PgSqlTriggers::Migrator.ensure_migrations_table!
 
@@ -55,6 +61,9 @@ module PgSqlTriggers
     end
 
     def redo
+      # Check kill switch before redoing migration
+      check_kill_switch(operation: :ui_migration_redo, confirmation: params[:confirmation_text])
+
       target_version = params[:version]&.to_i
       PgSqlTriggers::Migrator.ensure_migrations_table!
 

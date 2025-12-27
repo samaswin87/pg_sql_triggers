@@ -243,22 +243,181 @@ PgSqlTriggers automatically detects drift between your DSL definitions and the a
 
 ### 8. Production Kill Switch
 
-By default, PgSqlTriggers blocks destructive operations in production:
+The Kill Switch is a centralized safety mechanism that prevents accidental destructive operations in protected environments (production, staging, etc.). It provides multiple layers of protection for dangerous operations like migrations, trigger modifications, and SQL execution.
+
+#### How It Works
+
+The Kill Switch operates on three levels:
+
+1. **Configuration Level**: Environment-based activation via `kill_switch_enabled`
+2. **Runtime Level**: ENV variable override support (`KILL_SWITCH_OVERRIDE`)
+3. **Explicit Confirmation Level**: Typed confirmation text for critical operations
+
+#### Configuration
 
 ```ruby
 # config/initializers/pg_sql_triggers.rb
 PgSqlTriggers.configure do |config|
-  # Enable production kill switch (default: true)
+  # Enable or disable the kill switch globally (default: true)
   config.kill_switch_enabled = true
+
+  # Specify which environments to protect (default: [:production, :staging])
+  config.kill_switch_environments = %i[production staging]
+
+  # Require confirmation text for overrides (default: true)
+  config.kill_switch_confirmation_required = true
+
+  # Custom confirmation pattern (default: "EXECUTE <OPERATION>")
+  config.kill_switch_confirmation_pattern = ->(operation) { "EXECUTE #{operation.to_s.upcase}" }
+
+  # Logger for kill switch events (default: Rails.logger)
+  config.kill_switch_logger = Rails.logger
 end
 ```
 
-Override for specific operations:
+#### CLI Usage (Rake Tasks)
+
+When running dangerous operations via rake tasks in protected environments, you must provide confirmation:
+
+```bash
+# Without override - operation will be blocked in production
+rake trigger:migrate
+
+# With ENV override and confirmation text
+KILL_SWITCH_OVERRIDE=true CONFIRMATION_TEXT="EXECUTE TRIGGER_MIGRATE" rake trigger:migrate
+
+# Rollback with confirmation
+KILL_SWITCH_OVERRIDE=true CONFIRMATION_TEXT="EXECUTE TRIGGER_ROLLBACK" rake trigger:rollback
+
+# Specific migration operations
+KILL_SWITCH_OVERRIDE=true CONFIRMATION_TEXT="EXECUTE TRIGGER_MIGRATE_UP" rake trigger:migrate:up VERSION=20231215120000
+KILL_SWITCH_OVERRIDE=true CONFIRMATION_TEXT="EXECUTE TRIGGER_MIGRATE_DOWN" rake trigger:migrate:down VERSION=20231215120000
+```
+
+#### Console Usage
+
+For console operations, use the override block:
 
 ```ruby
-PgSqlTriggers::SQL.override_kill_switch do
-  # Dangerous operation here
+# Enable a trigger in production (with confirmation)
+PgSqlTriggers::SQL::KillSwitch.override(confirmation: "EXECUTE TRIGGER_ENABLE") do
+  trigger = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "users_email_validation")
+  trigger.enable!
 end
+
+# Disable a trigger in production
+PgSqlTriggers::SQL::KillSwitch.override(confirmation: "EXECUTE TRIGGER_DISABLE") do
+  trigger = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "users_email_validation")
+  trigger.disable!
+end
+
+# Run migrations programmatically
+PgSqlTriggers::SQL::KillSwitch.override(confirmation: "EXECUTE MIGRATOR_RUN_UP") do
+  PgSqlTriggers::Migrator.run_up
+end
+```
+
+Alternatively, pass confirmation directly to methods that support it:
+
+```ruby
+# Direct confirmation for trigger enable/disable
+trigger = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "users_email_validation")
+trigger.enable!(confirmation: "EXECUTE TRIGGER_ENABLE")
+trigger.disable!(confirmation: "EXECUTE TRIGGER_DISABLE")
+
+# Direct confirmation for migrator
+PgSqlTriggers::Migrator.run_up(nil, confirmation: "EXECUTE MIGRATOR_RUN_UP")
+PgSqlTriggers::Migrator.run_down(nil, confirmation: "EXECUTE MIGRATOR_RUN_DOWN")
+```
+
+#### Web UI Usage
+
+When accessing the web UI in protected environments, dangerous operations will require confirmation text. The UI will:
+
+- Display a kill switch status indicator
+- Show warning banners for production environments
+- Prompt for confirmation text before executing dangerous operations
+- Display the exact confirmation text required for each operation
+
+Simply enter the required confirmation text (e.g., "EXECUTE UI_MIGRATION_UP") when prompted.
+
+#### Protected Operations
+
+The following operations are protected by the kill switch:
+
+**CLI Operations:**
+- `trigger:migrate` - Apply trigger migrations
+- `trigger:rollback` - Rollback trigger migrations
+- `trigger:migrate:up` - Apply specific migration
+- `trigger:migrate:down` - Rollback specific migration
+- `trigger:migrate:redo` - Redo migration
+- `db:migrate:with_triggers` - Combined schema and trigger migrations
+- `db:rollback:with_triggers` - Combined rollback
+
+**Console Operations:**
+- `TriggerRegistry#enable!` - Enable a trigger
+- `TriggerRegistry#disable!` - Disable a trigger
+- `Migrator.run_up` - Run migrations programmatically
+- `Migrator.run_down` - Rollback migrations programmatically
+
+**Web UI Operations:**
+- Migration up/down/redo actions
+- Trigger generation
+
+#### Logging and Auditing
+
+All kill switch events are logged with the following information:
+
+- Operation being performed
+- Environment (production, staging, etc.)
+- Actor (who is performing the operation)
+- Status (blocked, overridden, or allowed)
+- Confirmation text (if provided)
+
+Example log messages:
+
+```
+[KILL_SWITCH] BLOCKED: operation=trigger_migrate environment=production actor=CLI:ashwin
+[KILL_SWITCH] OVERRIDDEN: operation=trigger_migrate environment=production actor=CLI:ashwin source=env_with_confirmation confirmation=EXECUTE TRIGGER_MIGRATE
+[KILL_SWITCH] ALLOWED: operation=trigger_migrate environment=development actor=CLI:ashwin reason=not_protected_environment
+```
+
+#### Customizing Confirmation Patterns
+
+You can customize the confirmation text pattern for different operations:
+
+```ruby
+# config/initializers/pg_sql_triggers.rb
+PgSqlTriggers.configure do |config|
+  # Custom pattern that includes the operation and timestamp
+  config.kill_switch_confirmation_pattern = ->(operation) {
+    "CONFIRM-#{operation.to_s.upcase}-#{Time.current.strftime('%Y%m%d')}"
+  }
+end
+```
+
+#### Error Messages
+
+When the kill switch blocks an operation, it provides helpful error messages with override instructions:
+
+```
+Kill switch is active for production environment.
+Operation 'trigger_migrate' has been blocked for safety.
+
+To override this protection, you must provide confirmation.
+
+For CLI/rake tasks, use:
+  KILL_SWITCH_OVERRIDE=true CONFIRMATION_TEXT="EXECUTE TRIGGER_MIGRATE" rake your:task
+
+For console operations, use:
+  PgSqlTriggers::SQL::KillSwitch.override(confirmation: "EXECUTE TRIGGER_MIGRATE") do
+    # your dangerous operation here
+  end
+
+For UI operations, enter the confirmation text: EXECUTE TRIGGER_MIGRATE
+
+This protection prevents accidental destructive operations in production.
+Make sure you understand the implications before proceeding.
 ```
 
 ## Configuration
