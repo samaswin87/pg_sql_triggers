@@ -200,6 +200,11 @@ Access the web UI at `http://localhost:3000/pg_triggers` to:
   - Redo the last migration
   - Individual migration controls for each migration in the status table
 
+<img width="3360" height="2506" alt="screencapture-localhost-3000-pg-triggers-2025-12-27-17_04_29" src="https://github.com/user-attachments/assets/a7f5904b-1172-41fc-ba3f-c05587cb1fe8" />
+
+<img width="3360" height="3420" alt="screencapture-localhost-3000-pg-triggers-generator-new-2025-12-27-17_04_49" src="https://github.com/user-attachments/assets/fc9e53f2-f540-489d-8e41-6075dab8d731" />
+
+
 ### 6. Permissions
 
 PgTriggers supports three permission levels:
