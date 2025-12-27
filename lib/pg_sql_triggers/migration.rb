@@ -5,9 +5,6 @@ module PgSqlTriggers
     # Base class for trigger migrations
     # Similar to ActiveRecord::Migration but for trigger-specific migrations
 
-    def execute(sql)
-      connection.execute(sql)
-    end
+    delegate :execute, to: :connection
   end
 end
-
