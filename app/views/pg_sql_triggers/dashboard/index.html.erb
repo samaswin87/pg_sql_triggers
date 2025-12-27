@@ -73,7 +73,7 @@
 <!-- Migration Management Section -->
 <div style="margin-top: 3rem;">
   <h3>Trigger Migrations</h3>
-  
+
   <div style="background: white; padding: 1.5rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 2rem;">
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
       <div style="padding: 1rem; background: #f8f9fa; border-radius: 4px;">
@@ -98,21 +98,21 @@
     <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
       <% if @pending_migrations.any? %>
         <%= form_with url: up_migrations_path, method: :post, local: true, style: "margin: 0;" do |f| %>
-          <%= f.submit "Apply All Pending Migrations", 
+          <%= f.submit "Apply All Pending Migrations",
               style: "padding: 0.75rem 1.5rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; font-weight: 600;",
               data: { confirm: "Are you sure you want to apply #{@pending_migrations.count} pending migration(s)?" } %>
         <% end %>
       <% end %>
-      
+
       <% if @current_migration_version > 0 %>
         <%= form_with url: down_migrations_path, method: :post, local: true, style: "margin: 0;" do |f| %>
-          <%= f.submit "Rollback Last Migration", 
+          <%= f.submit "Rollback Last Migration",
               style: "padding: 0.75rem 1.5rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; font-weight: 600;",
               data: { confirm: "Are you sure you want to rollback the last migration?" } %>
         <% end %>
-        
+
         <%= form_with url: redo_migrations_path, method: :post, local: true, style: "margin: 0;" do |f| %>
-          <%= f.submit "Redo Last Migration", 
+          <%= f.submit "Redo Last Migration",
               style: "padding: 0.75rem 1.5rem; background: #ffc107; color: #212529; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; font-weight: 600;",
               data: { confirm: "Are you sure you want to redo the last migration?" } %>
         <% end %>
@@ -163,20 +163,20 @@
                   <% if migration[:status] == "down" %>
                     <%= form_with url: up_migrations_path, method: :post, local: true, style: "margin: 0;" do |f| %>
                       <%= f.hidden_field :version, value: migration[:version] %>
-                      <%= f.submit "Up", 
+                      <%= f.submit "Up",
                           style: "padding: 0.25rem 0.75rem; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.75rem;",
                           data: { confirm: "Apply migration #{migration[:version]}?" } %>
                     <% end %>
                   <% else %>
                     <%= form_with url: down_migrations_path, method: :post, local: true, style: "margin: 0;" do |f| %>
                       <%= f.hidden_field :version, value: migration[:version] %>
-                      <%= f.submit "Down", 
+                      <%= f.submit "Down",
                           style: "padding: 0.25rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.75rem;",
                           data: { confirm: "Rollback to version #{migration[:version]}?" } %>
                     <% end %>
                     <%= form_with url: redo_migrations_path, method: :post, local: true, style: "margin: 0;" do |f| %>
                       <%= f.hidden_field :version, value: migration[:version] %>
-                      <%= f.submit "Redo", 
+                      <%= f.submit "Redo",
                           style: "padding: 0.25rem 0.75rem; background: #ffc107; color: #212529; border: none; border-radius: 3px; cursor: pointer; font-size: 0.75rem;",
                           data: { confirm: "Redo migration #{migration[:version]}?" } %>
                     <% end %>
@@ -187,13 +187,13 @@
           <% end %>
         </tbody>
       </table>
-      
+
       <!-- Pagination Controls -->
       <% if @total_pages > 1 %>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dee2e6;">
           <div>
             <% if @page > 1 %>
-              <%= link_to "← Previous", dashboard_path(page: @page - 1, per_page: @per_page), 
+              <%= link_to "← Previous", dashboard_path(page: @page - 1, per_page: @per_page),
                   style: "padding: 0.5rem 1rem; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin-right: 0.5rem;" %>
             <% end %>
             <% if @page < @total_pages %>
@@ -206,7 +206,7 @@
           </div>
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <label style="color: #6c757d; font-size: 0.875rem;">Per page:</label>
-            <select onchange="window.location.href='<%= dashboard_path %>?page=1&per_page=' + this.value" 
+            <select onchange="window.location.href='<%= dashboard_path %>?page=1&per_page=' + this.value"
                     style="padding: 0.25rem 0.5rem; border: 1px solid #ced4da; border-radius: 4px;">
               <option value="10" <%= 'selected' if @per_page == 10 %>>10</option>
               <option value="20" <%= 'selected' if @per_page == 20 %>>20</option>
