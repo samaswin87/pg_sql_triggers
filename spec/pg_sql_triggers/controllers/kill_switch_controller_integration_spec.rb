@@ -1,19 +1,13 @@
 # frozen_string_literal: true
 
-require 'rails_helper'
+require "rails_helper"
 
-RSpec.describe 'Kill Switch Controller Integration', type: :controller do
+RSpec.describe "Kill Switch Controller Integration", type: :controller do
   let(:logger) { instance_double(Logger) }
 
   before do
     # Setup default configuration
-    allow(PgSqlTriggers).to receive(:kill_switch_enabled).and_return(true)
-    allow(PgSqlTriggers).to receive(:kill_switch_environments).and_return([:production, :staging])
-    allow(PgSqlTriggers).to receive(:kill_switch_confirmation_required).and_return(true)
-    allow(PgSqlTriggers).to receive(:kill_switch_logger).and_return(logger)
-    allow(PgSqlTriggers).to receive(:kill_switch_confirmation_pattern).and_return(
-      ->(op) { "EXECUTE #{op.to_s.upcase}" }
-    )
+    allow(PgSqlTriggers).to receive_messages(kill_switch_enabled: true, kill_switch_environments: %i[production staging], kill_switch_confirmation_required: true, kill_switch_logger: logger, kill_switch_confirmation_pattern: ->(op) { "EXECUTE #{op.to_s.upcase}" })
 
     # Stub logger methods
     allow(logger).to receive(:debug)
@@ -25,48 +19,50 @@ RSpec.describe 'Kill Switch Controller Integration', type: :controller do
   describe PgSqlTriggers::MigrationsController do
     routes { PgSqlTriggers::Engine.routes }
 
-    describe 'POST #up' do
+    describe "POST #up" do
       before do
         allow(PgSqlTriggers::Migrator).to receive(:ensure_migrations_table!)
         allow(PgSqlTriggers::Migrator).to receive(:pending_migrations).and_return([])
         allow(PgSqlTriggers::Migrator).to receive(:run_up)
       end
 
-      context 'in production environment' do
+      # rubocop:disable RSpec/NestedGroups, RSpec/ContextWording
+      context "in production environment" do
         before do
-          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
         end
 
-        it 'blocks migration without confirmation' do
+        it "blocks migration without confirmation" do
           post :up
           expect(response).to redirect_to(root_path)
           expect(flash[:error]).to match(/Kill switch is active/)
         end
 
-        it 'allows migration with correct confirmation' do
-          post :up, params: { confirmation_text: 'EXECUTE UI_MIGRATION_UP' }
+        it "allows migration with correct confirmation" do
+          post :up, params: { confirmation_text: "EXECUTE UI_MIGRATION_UP" }
           expect(response).to redirect_to(root_path)
           expect(flash[:info]).to match(/No pending migrations/) # or success message
         end
 
-        it 'blocks migration with incorrect confirmation' do
-          post :up, params: { confirmation_text: 'WRONG TEXT' }
+        it "blocks migration with incorrect confirmation" do
+          post :up, params: { confirmation_text: "WRONG TEXT" }
           expect(response).to redirect_to(root_path)
           expect(flash[:error]).to match(/Invalid confirmation text/)
         end
 
-        it 'logs override when confirmation provided' do
+        it "logs override when confirmation provided" do
           expect(logger).to receive(:warn).with(/OVERRIDDEN.*ui_migration_up/)
-          post :up, params: { confirmation_text: 'EXECUTE UI_MIGRATION_UP' }
+          post :up, params: { confirmation_text: "EXECUTE UI_MIGRATION_UP" }
         end
       end
+      # rubocop:enable RSpec/NestedGroups, RSpec/ContextWording
 
-      context 'in development environment' do
+      context "in development environment" do
         before do
-          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('development'))
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("development"))
         end
 
-        it 'allows migration without confirmation' do
+        it "allows migration without confirmation" do
           post :up
           expect(response).to redirect_to(root_path)
           expect(flash[:error]).to be_nil
@@ -74,42 +70,42 @@ RSpec.describe 'Kill Switch Controller Integration', type: :controller do
       end
     end
 
-    describe 'POST #down' do
+    describe "POST #down" do
       before do
         allow(PgSqlTriggers::Migrator).to receive(:ensure_migrations_table!)
         allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(1)
         allow(PgSqlTriggers::Migrator).to receive(:run_down)
       end
 
-      context 'in production environment' do
+      context "in production environment" do
         before do
-          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
         end
 
-        it 'blocks rollback without confirmation' do
+        it "blocks rollback without confirmation" do
           post :down
           expect(response).to redirect_to(root_path)
           expect(flash[:error]).to match(/Kill switch is active/)
         end
 
-        it 'allows rollback with correct confirmation' do
-          post :down, params: { confirmation_text: 'EXECUTE UI_MIGRATION_DOWN' }
+        it "allows rollback with correct confirmation" do
+          post :down, params: { confirmation_text: "EXECUTE UI_MIGRATION_DOWN" }
           expect(response).to redirect_to(root_path)
           expect(flash[:success]).to match(/Rolled back/) # or similar success message
         end
 
-        it 'logs the blocked attempt' do
+        it "logs the blocked attempt" do
           expect(logger).to receive(:error).with(/BLOCKED.*ui_migration_down/)
           post :down
         end
       end
 
-      context 'in development environment' do
+      context "in development environment" do
         before do
-          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('development'))
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("development"))
         end
 
-        it 'allows rollback without confirmation' do
+        it "allows rollback without confirmation" do
           post :down
           expect(response).to redirect_to(root_path)
           expect(flash[:error]).to be_nil
@@ -117,7 +113,7 @@ RSpec.describe 'Kill Switch Controller Integration', type: :controller do
       end
     end
 
-    describe 'POST #redo' do
+    describe "POST #redo" do
       before do
         allow(PgSqlTriggers::Migrator).to receive(:ensure_migrations_table!)
         allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(1)
@@ -125,30 +121,30 @@ RSpec.describe 'Kill Switch Controller Integration', type: :controller do
         allow(PgSqlTriggers::Migrator).to receive(:run_up)
       end
 
-      context 'in production environment' do
+      context "in production environment" do
         before do
-          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
         end
 
-        it 'blocks redo without confirmation' do
+        it "blocks redo without confirmation" do
           post :redo
           expect(response).to redirect_to(root_path)
           expect(flash[:error]).to match(/Kill switch is active/)
         end
 
-        it 'allows redo with correct confirmation' do
-          post :redo, params: { confirmation_text: 'EXECUTE UI_MIGRATION_REDO' }
+        it "allows redo with correct confirmation" do
+          post :redo, params: { confirmation_text: "EXECUTE UI_MIGRATION_REDO" }
           expect(response).to redirect_to(root_path)
           expect(flash[:success]).to match(/redone/) # or similar success message
         end
       end
 
-      context 'in development environment' do
+      context "in development environment" do
         before do
-          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('development'))
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("development"))
         end
 
-        it 'allows redo without confirmation' do
+        it "allows redo without confirmation" do
           post :redo
           expect(response).to redirect_to(root_path)
           expect(flash[:error]).to be_nil
@@ -160,28 +156,28 @@ RSpec.describe 'Kill Switch Controller Integration', type: :controller do
   describe PgSqlTriggers::GeneratorController do
     routes { PgSqlTriggers::Engine.routes }
 
-    describe 'POST #create' do
+    describe "POST #create" do
       let(:valid_params) do
         {
           pg_sql_triggers_generator_form: {
-            trigger_name: 'test_trigger',
-            table_name: 'users',
-            function_name: 'test_function',
-            version: '1',
-            enabled: 'false',
-            events: ['insert'],
-            environments: ['production'],
-            function_body: 'BEGIN RETURN NEW; END;'
+            trigger_name: "test_trigger",
+            table_name: "users",
+            function_name: "test_function",
+            version: "1",
+            enabled: "false",
+            events: ["insert"],
+            environments: ["production"],
+            function_body: "BEGIN RETURN NEW; END;"
           }
         }
       end
 
       before do
         allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(
-          instance_double(PgSqlTriggers::DatabaseIntrospection, list_tables: ['users'])
+          instance_double(PgSqlTriggers::DatabaseIntrospection, list_tables: ["users"])
         )
         allow(PgSqlTriggers::Generator::Service).to receive(:create_trigger).and_return(
-          { success: true, migration_path: 'test', dsl_path: 'test' }
+          { success: true, migration_path: "test", dsl_path: "test" }
         )
         allow(PgSqlTriggers::Testing::SyntaxValidator).to receive(:new).and_return(
           instance_double(PgSqlTriggers::Testing::SyntaxValidator,
@@ -189,35 +185,35 @@ RSpec.describe 'Kill Switch Controller Integration', type: :controller do
         )
       end
 
-      context 'in production environment' do
+      context "in production environment" do
         before do
-          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
         end
 
-        it 'blocks generation without confirmation' do
+        it "blocks generation without confirmation" do
           post :create, params: valid_params
           expect(response).to redirect_to(root_path)
           expect(flash[:error]).to match(/Kill switch is active/)
         end
 
-        it 'allows generation with correct confirmation' do
-          post :create, params: valid_params.merge(confirmation_text: 'EXECUTE UI_TRIGGER_GENERATE')
+        it "allows generation with correct confirmation" do
+          post :create, params: valid_params.merge(confirmation_text: "EXECUTE UI_TRIGGER_GENERATE")
           expect(response).to redirect_to(root_path)
           expect(flash[:alert]).to be_nil
         end
 
-        it 'logs override when confirmation provided' do
+        it "logs override when confirmation provided" do
           expect(logger).to receive(:warn).with(/OVERRIDDEN.*ui_trigger_generate/)
-          post :create, params: valid_params.merge(confirmation_text: 'EXECUTE UI_TRIGGER_GENERATE')
+          post :create, params: valid_params.merge(confirmation_text: "EXECUTE UI_TRIGGER_GENERATE")
         end
       end
 
-      context 'in development environment' do
+      context "in development environment" do
         before do
-          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('development'))
+          allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("development"))
         end
 
-        it 'allows generation without confirmation' do
+        it "allows generation without confirmation" do
           post :create, params: valid_params
           expect(response).to redirect_to(root_path)
           expect(flash[:error]).to be_nil
@@ -226,7 +222,7 @@ RSpec.describe 'Kill Switch Controller Integration', type: :controller do
     end
   end
 
-  describe 'Helper Methods' do
+  describe "Helper Methods" do
     controller(PgSqlTriggers::ApplicationController) do
       def test_action
         render plain: "kill_switch_active: #{kill_switch_active?}, env: #{current_environment}"
@@ -234,25 +230,25 @@ RSpec.describe 'Kill Switch Controller Integration', type: :controller do
     end
 
     before do
-      routes.draw { get 'test_action' => 'anonymous#test_action' }
+      routes.draw { get "test_action" => "anonymous#test_action" }
     end
 
-    it 'provides current_environment helper' do
-      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+    it "provides current_environment helper" do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
       get :test_action
-      expect(response.body).to include('env: production')
+      expect(response.body).to include("env: production")
     end
 
-    it 'provides kill_switch_active? helper' do
-      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+    it "provides kill_switch_active? helper" do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
       get :test_action
-      expect(response.body).to include('kill_switch_active: true')
+      expect(response.body).to include("kill_switch_active: true")
     end
 
-    it 'returns false for kill_switch_active? in development' do
-      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('development'))
+    it "returns false for kill_switch_active? in development" do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("development"))
       get :test_action
-      expect(response.body).to include('kill_switch_active: false')
+      expect(response.body).to include("kill_switch_active: false")
     end
   end
 end

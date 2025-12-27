@@ -40,6 +40,7 @@ Gem::Specification.new do |spec|
 
   # Development dependencies
   spec.add_development_dependency "database_cleaner-active_record", "~> 2.0"
+  spec.add_development_dependency "erb_lint", "~> 0.9"
   spec.add_development_dependency "factory_bot_rails", "~> 6.0"
   spec.add_development_dependency "rails-controller-testing", "~> 1.0"
   spec.add_development_dependency "rspec", "~> 3.0"

@@ -26,6 +26,7 @@ module PgSqlTriggers
     # @example CLI usage with ENV override
     #   KILL_SWITCH_OVERRIDE=true CONFIRMATION_TEXT="EXECUTE MIGRATE_UP" rake pg_sql_triggers:migrate
     #
+    # rubocop:disable Metrics/ModuleLength
     module KillSwitch
       class << self
         # Thread-local storage key for override state
@@ -81,7 +82,8 @@ module PgSqlTriggers
             # If ENV override is present, check confirmation if required
             if confirmation_required?
               validate_confirmation!(confirmation, operation)
-              log_override(operation: operation, environment: env, actor: actor, source: "env_with_confirmation", confirmation: confirmation)
+              log_override(operation: operation, environment: env, actor: actor, source: "env_with_confirmation",
+                           confirmation: confirmation)
             else
               log_override(operation: operation, environment: env, actor: actor, source: "env_without_confirmation")
             end
@@ -91,7 +93,8 @@ module PgSqlTriggers
           # If confirmation is provided, validate it
           if confirmation.present?
             validate_confirmation!(confirmation, operation)
-            log_override(operation: operation, environment: env, actor: actor, source: "explicit_confirmation", confirmation: confirmation)
+            log_override(operation: operation, environment: env, actor: actor, source: "explicit_confirmation",
+                         confirmation: confirmation)
             return
           end
 
@@ -106,12 +109,12 @@ module PgSqlTriggers
         # @param confirmation [String, nil] Optional confirmation text
         # @yield The block to execute with kill switch overridden
         # @return The return value of the block
-        def override(confirmation: nil, &block)
+        def override(confirmation: nil)
           raise ArgumentError, "Block required for kill switch override" unless block_given?
 
           # Validate confirmation if provided and required
           if confirmation.present? && confirmation_required?
-            # Note: We can't validate against a specific operation here since we don't know it
+            # NOTE: We can't validate against a specific operation here since we don't know it
             # The block itself will call check! with the operation, which will see the override
             logger&.info "[KILL_SWITCH] Override block initiated with confirmation: #{confirmation}"
           end
@@ -142,10 +145,10 @@ module PgSqlTriggers
                   "Confirmation text required. Expected: '#{expected}'"
           end
 
-          unless confirmation.strip == expected
-            raise PgSqlTriggers::KillSwitchError,
-                  "Invalid confirmation text. Expected: '#{expected}', got: '#{confirmation.strip}'"
-          end
+          return if confirmation.strip == expected
+
+          raise PgSqlTriggers::KillSwitchError,
+                "Invalid confirmation text. Expected: '#{expected}', got: '#{confirmation.strip}'"
         end
 
         private
@@ -156,7 +159,7 @@ module PgSqlTriggers
 
           # Default to true (fail-safe) if not configured
           value = PgSqlTriggers.kill_switch_enabled
-          value.nil? ? true : value
+          value.nil? || value
         end
 
         # Checks if the given environment is protected by the kill switch
@@ -164,10 +167,10 @@ module PgSqlTriggers
           return false if environment.nil?
 
           protected_envs = if PgSqlTriggers.respond_to?(:kill_switch_environments)
-                            PgSqlTriggers.kill_switch_environments
-                          else
-                            [:production, :staging]
-                          end
+                             PgSqlTriggers.kill_switch_environments
+                           else
+                             %i[production staging]
+                           end
 
           protected_envs = Array(protected_envs).map(&:to_s)
           protected_envs.include?(environment.to_s)
@@ -186,7 +189,7 @@ module PgSqlTriggers
           end
 
           # Fall back to RAILS_ENV or RACK_ENV
-          ENV['RAILS_ENV'] || ENV['RACK_ENV'] || 'development'
+          ENV["RAILS_ENV"] || ENV["RACK_ENV"] || "development"
         end
 
         # Checks if thread-local override is active
@@ -196,7 +199,7 @@ module PgSqlTriggers
 
         # Checks if ENV override is active
         def env_override_active?
-          ENV['KILL_SWITCH_OVERRIDE']&.downcase == 'true'
+          ENV["KILL_SWITCH_OVERRIDE"]&.downcase == "true"
         end
 
         # Checks if confirmation is required for overrides
@@ -205,7 +208,7 @@ module PgSqlTriggers
 
           # Default to true (safer) if not configured
           value = PgSqlTriggers.kill_switch_confirmation_required
-          value.nil? ? true : value
+          value.nil? || value
         end
 
         # Generates the expected confirmation text for an operation
@@ -236,14 +239,16 @@ module PgSqlTriggers
         # Logs an allowed operation
         def log_allowed(operation:, environment:, actor:, reason:)
           actor_info = format_actor(actor)
-          logger&.info "[KILL_SWITCH] ALLOWED: operation=#{operation} environment=#{environment} actor=#{actor_info} reason=#{reason}"
+          logger&.info "[KILL_SWITCH] ALLOWED: operation=#{operation} environment=#{environment} " \
+                       "actor=#{actor_info} reason=#{reason}"
         end
 
         # Logs an overridden operation
         def log_override(operation:, environment:, actor:, source:, confirmation: nil)
           actor_info = format_actor(actor)
           conf_info = confirmation ? " confirmation=#{confirmation}" : ""
-          logger&.warn "[KILL_SWITCH] OVERRIDDEN: operation=#{operation} environment=#{environment} actor=#{actor_info} source=#{source}#{conf_info}"
+          logger&.warn "[KILL_SWITCH] OVERRIDDEN: operation=#{operation} environment=#{environment} " \
+                       "actor=#{actor_info} source=#{source}#{conf_info}"
         end
 
         # Logs a blocked operation
@@ -288,5 +293,6 @@ module PgSqlTriggers
         end
       end
     end
+    # rubocop:enable Metrics/ModuleLength
   end
 end
