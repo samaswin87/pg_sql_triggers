@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   module Testing
     autoload :SyntaxValidator, "pg_sql_triggers/testing/syntax_validator"
     autoload :DryRun, "pg_sql_triggers/testing/dry_run"

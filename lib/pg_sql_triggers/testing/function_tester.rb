@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   module Testing
     class FunctionTester
       def initialize(trigger_registry)
@@ -27,17 +27,21 @@ module PgTriggers
             if test_context.present?
               # This would require custom invocation logic
               # For now, just verify it was created
-              function_name = JSON.parse(@trigger.definition)["function_name"]
-              check_sql = <<~SQL
-                SELECT proname
-                FROM pg_proc
-                WHERE proname = '#{function_name}'
-              SQL
+              definition = JSON.parse(@trigger.definition) rescue {}
+              function_name = definition["function_name"]
+              if function_name.present?
+                sanitized_name = ActiveRecord::Base.connection.quote_string(function_name)
+                check_sql = <<~SQL
+                  SELECT proname
+                  FROM pg_proc
+                  WHERE proname = '#{sanitized_name}'
+                SQL
 
-              result = ActiveRecord::Base.connection.execute(check_sql)
-              if result.any?
-                results[:function_executed] = true
-                results[:output] << "✓ Function exists and is callable"
+                result = ActiveRecord::Base.connection.execute(check_sql)
+                if result.any?
+                  results[:function_executed] = true
+                  results[:output] << "✓ Function exists and is callable"
+                end
               end
             end
 
@@ -57,12 +61,15 @@ module PgTriggers
 
       # Check if function already exists in database
       def function_exists?
-        function_name = JSON.parse(@trigger.definition)["function_name"]
+        definition = JSON.parse(@trigger.definition) rescue {}
+        function_name = definition["function_name"]
+        return false if function_name.blank?
 
+        sanitized_name = ActiveRecord::Base.connection.quote_string(function_name)
         sql = <<~SQL
           SELECT COUNT(*) as count
           FROM pg_proc
-          WHERE proname = '#{function_name}'
+          WHERE proname = '#{sanitized_name}'
         SQL
 
         result = ActiveRecord::Base.connection.execute(sql)

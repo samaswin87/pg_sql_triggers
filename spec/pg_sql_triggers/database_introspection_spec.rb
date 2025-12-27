@@ -2,8 +2,8 @@
 
 require "spec_helper"
 
-RSpec.describe PgTriggers::DatabaseIntrospection do
-  let(:introspection) { PgTriggers::DatabaseIntrospection.new }
+RSpec.describe PgSqlTriggers::DatabaseIntrospection do
+  let(:introspection) { PgSqlTriggers::DatabaseIntrospection.new }
 
   before do
     # Create test tables
@@ -23,10 +23,10 @@ RSpec.describe PgTriggers::DatabaseIntrospection do
     end
 
     it "includes user-configured excluded tables" do
-      PgTriggers.excluded_tables = ["custom_table"]
+      PgSqlTriggers.excluded_tables = ["custom_table"]
       excluded = introspection.excluded_tables
       expect(excluded).to include("custom_table")
-      PgTriggers.excluded_tables = []
+      PgSqlTriggers.excluded_tables = []
     end
   end
 
@@ -153,7 +153,7 @@ RSpec.describe PgTriggers::DatabaseIntrospection do
 
   describe "#tables_with_triggers" do
     before do
-      PgTriggers::TriggerRegistry.create!(
+      PgSqlTriggers::TriggerRegistry.create!(
         trigger_name: "registry_trigger",
         table_name: "test_users",
         version: 1,
@@ -193,7 +193,7 @@ RSpec.describe PgTriggers::DatabaseIntrospection do
 
     it "handles errors when fetching database triggers" do
       allow(ActiveRecord::Base.connection).to receive(:execute).and_call_original
-      allow(ActiveRecord::Base.connection).to receive(:execute).with(/pg_trigger/).and_raise(StandardError.new("Error"))
+      allow(ActiveRecord::Base.connection).to receive(:execute).with(/pg_sql_trigger/).and_raise(StandardError.new("Error"))
       allow(Rails.logger).to receive(:error)
 
       tables = introspection.tables_with_triggers
@@ -203,7 +203,7 @@ RSpec.describe PgTriggers::DatabaseIntrospection do
 
   describe "#table_triggers" do
     before do
-      PgTriggers::TriggerRegistry.create!(
+      PgSqlTriggers::TriggerRegistry.create!(
         trigger_name: "registry_trigger",
         table_name: "test_users",
         version: 1,
@@ -234,7 +234,7 @@ RSpec.describe PgTriggers::DatabaseIntrospection do
 
     it "handles errors when fetching database triggers" do
       allow(ActiveRecord::Base.connection).to receive(:execute).and_call_original
-      allow(ActiveRecord::Base.connection).to receive(:execute).with(/pg_trigger/).and_raise(StandardError.new("Error"))
+      allow(ActiveRecord::Base.connection).to receive(:execute).with(/pg_sql_trigger/).and_raise(StandardError.new("Error"))
       allow(Rails.logger).to receive(:error)
 
       result = introspection.table_triggers("test_users")

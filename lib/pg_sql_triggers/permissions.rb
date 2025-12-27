@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   module Permissions
     autoload :Checker, "pg_sql_triggers/permissions/checker"
 

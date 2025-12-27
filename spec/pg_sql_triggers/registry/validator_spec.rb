@@ -2,10 +2,10 @@
 
 require "spec_helper"
 
-RSpec.describe PgTriggers::Registry::Validator do
+RSpec.describe PgSqlTriggers::Registry::Validator do
   describe ".validate!" do
     it "validates registry entries" do
-      expect(PgTriggers::Registry::Validator.validate!).to be true
+      expect(PgSqlTriggers::Registry::Validator.validate!).to be true
     end
   end
 end

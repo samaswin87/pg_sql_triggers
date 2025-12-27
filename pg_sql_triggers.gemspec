@@ -4,9 +4,9 @@ require_relative "lib/pg_sql_triggers/version"
 
 Gem::Specification.new do |spec|
   spec.name = "pg_sql_triggers"
-  spec.version = PgTriggers::VERSION
+  spec.version = PgSqlTriggers::VERSION
   spec.authors = ["samaswin87"]
-  spec.email = ["aswin.r312@gmail.com"]
+  spec.email = ["samaswin@gmail.com"]
 
   spec.summary = "A PostgreSQL Trigger Control Plane for Rails"
   spec.description = "Production-grade PostgreSQL trigger management for Rails with lifecycle management, safe deploys, versioning, drift detection, and a mountable UI."

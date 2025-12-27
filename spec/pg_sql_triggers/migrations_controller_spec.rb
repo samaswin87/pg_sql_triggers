@@ -2,8 +2,8 @@
 
 require 'spec_helper'
 
-RSpec.describe PgTriggers::MigrationsController, type: :controller do
-  routes { PgTriggers::Engine.routes }
+RSpec.describe PgSqlTriggers::MigrationsController, type: :controller do
+  routes { PgSqlTriggers::Engine.routes }
 
   before do
     # Mock Rails.root
@@ -11,7 +11,7 @@ RSpec.describe PgTriggers::MigrationsController, type: :controller do
     allow(Rails.logger).to receive(:error)
 
     # Ensure migrations table exists
-    allow(PgTriggers::Migrator).to receive(:ensure_migrations_table!).and_return(true)
+    allow(PgSqlTriggers::Migrator).to receive(:ensure_migrations_table!).and_return(true)
   end
 
   describe 'POST #up' do
@@ -23,13 +23,13 @@ RSpec.describe PgTriggers::MigrationsController, type: :controller do
       end
 
       before do
-        allow(PgTriggers::Migrator).to receive(:pending_migrations).and_return(pending_migrations)
-        allow(PgTriggers::Migrator).to receive(:run_up).and_return(true)
+        allow(PgSqlTriggers::Migrator).to receive(:pending_migrations).and_return(pending_migrations)
+        allow(PgSqlTriggers::Migrator).to receive(:run_up).and_return(true)
       end
 
       it 'applies all pending migrations' do
         post :up
-        expect(PgTriggers::Migrator).to have_received(:run_up).with(no_args)
+        expect(PgSqlTriggers::Migrator).to have_received(:run_up).with(no_args)
         expect(flash[:success]).to match(/Applied \d+ pending migration\(s\) successfully/)
       end
 
@@ -41,19 +41,19 @@ RSpec.describe PgTriggers::MigrationsController, type: :controller do
 
     context 'when applying a specific version' do
       before do
-        allow(PgTriggers::Migrator).to receive(:run_up).with(20231215120001).and_return(true)
+        allow(PgSqlTriggers::Migrator).to receive(:run_up).with(20231215120001).and_return(true)
       end
 
       it 'applies the specified migration version' do
         post :up, params: { version: '20231215120001' }
-        expect(PgTriggers::Migrator).to have_received(:run_up).with(20231215120001)
+        expect(PgSqlTriggers::Migrator).to have_received(:run_up).with(20231215120001)
         expect(flash[:success]).to eq('Migration 20231215120001 applied successfully.')
       end
     end
 
     context 'when no pending migrations exist' do
       before do
-        allow(PgTriggers::Migrator).to receive(:pending_migrations).and_return([])
+        allow(PgSqlTriggers::Migrator).to receive(:pending_migrations).and_return([])
       end
 
       it 'shows info message' do
@@ -66,7 +66,7 @@ RSpec.describe PgTriggers::MigrationsController, type: :controller do
       let(:error_message) { 'Migration failed' }
 
       before do
-        allow(PgTriggers::Migrator).to receive(:pending_migrations).and_raise(StandardError.new(error_message))
+        allow(PgSqlTriggers::Migrator).to receive(:pending_migrations).and_raise(StandardError.new(error_message))
       end
 
       it 'handles errors gracefully' do
@@ -80,13 +80,13 @@ RSpec.describe PgTriggers::MigrationsController, type: :controller do
   describe 'POST #down' do
     context 'when rolling back last migration' do
       before do
-        allow(PgTriggers::Migrator).to receive(:current_version).and_return(20231215120001)
-        allow(PgTriggers::Migrator).to receive(:run_down).and_return(true)
+        allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(20231215120001)
+        allow(PgSqlTriggers::Migrator).to receive(:run_down).and_return(true)
       end
 
       it 'rolls back the last migration' do
         post :down
-        expect(PgTriggers::Migrator).to have_received(:run_down).with(no_args)
+        expect(PgSqlTriggers::Migrator).to have_received(:run_down).with(no_args)
         expect(flash[:success]).to eq('Rolled back last migration successfully.')
       end
 
@@ -98,20 +98,20 @@ RSpec.describe PgTriggers::MigrationsController, type: :controller do
 
     context 'when rolling back to a specific version' do
       before do
-        allow(PgTriggers::Migrator).to receive(:current_version).and_return(20231215120002)
-        allow(PgTriggers::Migrator).to receive(:run_down).with(20231215120001).and_return(true)
+        allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(20231215120002)
+        allow(PgSqlTriggers::Migrator).to receive(:run_down).with(20231215120001).and_return(true)
       end
 
       it 'rolls back to the specified version' do
         post :down, params: { version: '20231215120001' }
-        expect(PgTriggers::Migrator).to have_received(:run_down).with(20231215120001)
+        expect(PgSqlTriggers::Migrator).to have_received(:run_down).with(20231215120001)
         expect(flash[:success]).to eq('Migration version 20231215120001 rolled back successfully.')
       end
     end
 
     context 'when no migrations exist' do
       before do
-        allow(PgTriggers::Migrator).to receive(:current_version).and_return(0)
+        allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(0)
       end
 
       it 'shows warning message' do
@@ -124,8 +124,8 @@ RSpec.describe PgTriggers::MigrationsController, type: :controller do
       let(:error_message) { 'Rollback failed' }
 
       before do
-        allow(PgTriggers::Migrator).to receive(:current_version).and_return(20231215120001)
-        allow(PgTriggers::Migrator).to receive(:run_down).and_raise(StandardError.new(error_message))
+        allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(20231215120001)
+        allow(PgSqlTriggers::Migrator).to receive(:run_down).and_raise(StandardError.new(error_message))
       end
 
       it 'handles errors gracefully' do
@@ -139,15 +139,15 @@ RSpec.describe PgTriggers::MigrationsController, type: :controller do
   describe 'POST #redo' do
     context 'when redoing last migration' do
       before do
-        allow(PgTriggers::Migrator).to receive(:current_version).and_return(20231215120001)
-        allow(PgTriggers::Migrator).to receive(:run_down).and_return(true)
-        allow(PgTriggers::Migrator).to receive(:run_up).and_return(true)
+        allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(20231215120001)
+        allow(PgSqlTriggers::Migrator).to receive(:run_down).and_return(true)
+        allow(PgSqlTriggers::Migrator).to receive(:run_up).and_return(true)
       end
 
       it 'redoes the last migration' do
         post :redo
-        expect(PgTriggers::Migrator).to have_received(:run_down).with(no_args)
-        expect(PgTriggers::Migrator).to have_received(:run_up).with(no_args)
+        expect(PgSqlTriggers::Migrator).to have_received(:run_down).with(no_args)
+        expect(PgSqlTriggers::Migrator).to have_received(:run_up).with(no_args)
         expect(flash[:success]).to eq('Last migration redone successfully.')
       end
 
@@ -159,21 +159,21 @@ RSpec.describe PgTriggers::MigrationsController, type: :controller do
 
     context 'when redoing a specific version' do
       before do
-        allow(PgTriggers::Migrator).to receive(:run_down).with(20231215120001).and_return(true)
-        allow(PgTriggers::Migrator).to receive(:run_up).with(20231215120001).and_return(true)
+        allow(PgSqlTriggers::Migrator).to receive(:run_down).with(20231215120001).and_return(true)
+        allow(PgSqlTriggers::Migrator).to receive(:run_up).with(20231215120001).and_return(true)
       end
 
       it 'redoes the specified migration version' do
         post :redo, params: { version: '20231215120001' }
-        expect(PgTriggers::Migrator).to have_received(:run_down).with(20231215120001)
-        expect(PgTriggers::Migrator).to have_received(:run_up).with(20231215120001)
+        expect(PgSqlTriggers::Migrator).to have_received(:run_down).with(20231215120001)
+        expect(PgSqlTriggers::Migrator).to have_received(:run_up).with(20231215120001)
         expect(flash[:success]).to eq('Migration 20231215120001 redone successfully.')
       end
     end
 
     context 'when no migrations exist' do
       before do
-        allow(PgTriggers::Migrator).to receive(:current_version).and_return(0)
+        allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(0)
       end
 
       it 'shows warning message' do
@@ -186,8 +186,8 @@ RSpec.describe PgTriggers::MigrationsController, type: :controller do
       let(:error_message) { 'Redo failed' }
 
       before do
-        allow(PgTriggers::Migrator).to receive(:current_version).and_return(20231215120001)
-        allow(PgTriggers::Migrator).to receive(:run_down).and_raise(StandardError.new(error_message))
+        allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(20231215120001)
+        allow(PgSqlTriggers::Migrator).to receive(:run_down).and_raise(StandardError.new(error_message))
       end
 
       it 'handles errors gracefully' do

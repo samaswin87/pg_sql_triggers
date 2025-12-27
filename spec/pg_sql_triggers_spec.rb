@@ -2,57 +2,57 @@
 
 require "spec_helper"
 
-RSpec.describe PgTriggers do
+RSpec.describe PgSqlTriggers do
   it "has a version number" do
-    expect(PgTriggers::VERSION).not_to be nil
-    expect(PgTriggers::VERSION).to be_a(String)
+    expect(PgSqlTriggers::VERSION).not_to be nil
+    expect(PgSqlTriggers::VERSION).to be_a(String)
   end
 
   describe ".configure" do
     it "yields self for configuration" do
-      PgTriggers.configure do |config|
-        expect(config).to eq(PgTriggers)
+      PgSqlTriggers.configure do |config|
+        expect(config).to eq(PgSqlTriggers)
       end
     end
 
     it "allows setting kill_switch_enabled" do
-      original = PgTriggers.kill_switch_enabled
-      PgTriggers.configure do |config|
+      original = PgSqlTriggers.kill_switch_enabled
+      PgSqlTriggers.configure do |config|
         config.kill_switch_enabled = false
       end
-      expect(PgTriggers.kill_switch_enabled).to eq(false)
-      PgTriggers.kill_switch_enabled = original
+      expect(PgSqlTriggers.kill_switch_enabled).to eq(false)
+      PgSqlTriggers.kill_switch_enabled = original
     end
 
     it "allows setting default_environment" do
-      original = PgTriggers.default_environment
-      PgTriggers.configure do |config|
+      original = PgSqlTriggers.default_environment
+      PgSqlTriggers.configure do |config|
         config.default_environment = -> { "test" }
       end
-      expect(PgTriggers.default_environment.call).to eq("test")
-      PgTriggers.default_environment = original
+      expect(PgSqlTriggers.default_environment.call).to eq("test")
+      PgSqlTriggers.default_environment = original
     end
   end
 
   describe "error classes" do
     it "defines Error base class" do
-      expect(PgTriggers::Error).to be < StandardError
+      expect(PgSqlTriggers::Error).to be < StandardError
     end
 
     it "defines PermissionError" do
-      expect(PgTriggers::PermissionError).to be < PgTriggers::Error
+      expect(PgSqlTriggers::PermissionError).to be < PgSqlTriggers::Error
     end
 
     it "defines DriftError" do
-      expect(PgTriggers::DriftError).to be < PgTriggers::Error
+      expect(PgSqlTriggers::DriftError).to be < PgSqlTriggers::Error
     end
 
     it "defines KillSwitchError" do
-      expect(PgTriggers::KillSwitchError).to be < PgTriggers::Error
+      expect(PgSqlTriggers::KillSwitchError).to be < PgSqlTriggers::Error
     end
 
     it "defines ValidationError" do
-      expect(PgTriggers::ValidationError).to be < PgTriggers::Error
+      expect(PgSqlTriggers::ValidationError).to be < PgSqlTriggers::Error
     end
   end
 end

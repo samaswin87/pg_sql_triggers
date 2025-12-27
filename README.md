@@ -1,10 +1,10 @@
-# PgTriggers
+# PgSqlTriggers
 
 > **A PostgreSQL Trigger Control Plane for Rails**
 
 Production-grade PostgreSQL trigger management for Rails with lifecycle management, safe deploys, versioning, drift detection, and a mountable UI.
 
-## Why PgTriggers?
+## Why PgSqlTriggers?
 
 Rails teams use PostgreSQL triggers for data integrity, performance, and billing logic. But triggers today are:
 
@@ -13,7 +13,7 @@ Rails teams use PostgreSQL triggers for data integrity, performance, and billing
 - Unsafe to deploy
 - Easy to drift
 
-**PgTriggers** brings triggers into the Rails ecosystem with:
+**PgSqlTriggers** brings triggers into the Rails ecosystem with:
 
 - Lifecycle management
 - Safe deploys
@@ -55,7 +55,7 @@ Create trigger definitions using the Ruby DSL:
 
 ```ruby
 # app/triggers/users_email_validation.rb
-PgTriggers::DSL.pg_trigger "users_email_validation" do
+PgSqlTriggers::DSL.pg_sql_trigger "users_email_validation" do
   table :users
   on :insert, :update
   function :validate_user_email
@@ -114,7 +114,7 @@ Example trigger migration:
 
 ```ruby
 # db/triggers/20231215120000_add_validation_trigger.rb
-class AddValidationTrigger < PgTriggers::Migration
+class AddValidationTrigger < PgSqlTriggers::Migration
   def up
     execute <<-SQL
       CREATE OR REPLACE FUNCTION validate_user_email()
@@ -167,22 +167,22 @@ Access trigger information from the Rails console:
 
 ```ruby
 # List all triggers
-PgTriggers::Registry.list
+PgSqlTriggers::Registry.list
 
 # List enabled triggers
-PgTriggers::Registry.enabled
+PgSqlTriggers::Registry.enabled
 
 # List disabled triggers
-PgTriggers::Registry.disabled
+PgSqlTriggers::Registry.disabled
 
 # Get triggers for a specific table
-PgTriggers::Registry.for_table(:users)
+PgSqlTriggers::Registry.for_table(:users)
 
 # Check for drift
-PgTriggers::Registry.diff
+PgSqlTriggers::Registry.diff
 
 # Validate all triggers
-PgTriggers::Registry.validate!
+PgSqlTriggers::Registry.validate!
 ```
 
 ### 5. Web UI
@@ -207,7 +207,7 @@ Access the web UI at `http://localhost:3000/pg_sql_triggers` to:
 
 ### 6. Permissions
 
-PgTriggers supports three permission levels:
+PgSqlTriggers supports three permission levels:
 
 - **Viewer**: Read-only access (view triggers, diffs)
 - **Operator**: Can enable/disable triggers, apply generated triggers
@@ -217,7 +217,7 @@ Configure custom permission checking:
 
 ```ruby
 # config/initializers/pg_sql_triggers.rb
-PgTriggers.configure do |config|
+PgSqlTriggers.configure do |config|
   config.permission_checker = ->(actor, action, environment) {
     # Your custom permission logic
     user = User.find(actor[:id])
@@ -228,22 +228,22 @@ end
 
 ### 7. Drift Detection
 
-PgTriggers automatically detects drift between your DSL definitions and the actual database state:
+PgSqlTriggers automatically detects drift between your DSL definitions and the actual database state:
 
 - **Managed & In Sync**: Trigger matches DSL definition
 - **Managed & Drifted**: Trigger exists but doesn't match DSL
-- **Manual Override**: Trigger was modified outside of PgTriggers
+- **Manual Override**: Trigger was modified outside of PgSqlTriggers
 - **Disabled**: Trigger is disabled
 - **Dropped**: Trigger was dropped but still in registry
 - **Unknown**: Trigger exists in DB but not in registry
 
 ### 8. Production Kill Switch
 
-By default, PgTriggers blocks destructive operations in production:
+By default, PgSqlTriggers blocks destructive operations in production:
 
 ```ruby
 # config/initializers/pg_sql_triggers.rb
-PgTriggers.configure do |config|
+PgSqlTriggers.configure do |config|
   # Enable production kill switch (default: true)
   config.kill_switch_enabled = true
 end
@@ -252,7 +252,7 @@ end
 Override for specific operations:
 
 ```ruby
-PgTriggers::SQL.override_kill_switch do
+PgSqlTriggers::SQL.override_kill_switch do
   # Dangerous operation here
 end
 ```
@@ -261,7 +261,7 @@ end
 
 ```ruby
 # config/initializers/pg_sql_triggers.rb
-PgTriggers.configure do |config|
+PgSqlTriggers.configure do |config|
   # Kill switch for production (default: true)
   config.kill_switch_enabled = true
 

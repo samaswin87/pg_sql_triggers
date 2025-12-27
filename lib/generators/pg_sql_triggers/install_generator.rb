@@ -3,7 +3,7 @@
 require "rails/generators"
 require "rails/generators/migration"
 
-module PgTriggers
+module PgSqlTriggers
   module Generators
     class InstallGenerator < Rails::Generators::Base
       include Rails::Generators::Migration
@@ -25,7 +25,7 @@ module PgTriggers
       end
 
       def mount_engine
-        route 'mount PgTriggers::Engine => "/pg_sql_triggers"'
+        route 'mount PgSqlTriggers::Engine => "/pg_sql_triggers"'
       end
 
       def show_readme

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   class Engine < ::Rails::Engine
-    isolate_namespace PgTriggers
+    isolate_namespace PgSqlTriggers
 
     config.generators do |g|
       g.test_framework :rspec

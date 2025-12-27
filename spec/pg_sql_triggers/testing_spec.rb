@@ -2,9 +2,9 @@
 
 require "spec_helper"
 
-RSpec.describe PgTriggers::Testing::SyntaxValidator do
+RSpec.describe PgSqlTriggers::Testing::SyntaxValidator do
   let(:registry) do
-    PgTriggers::TriggerRegistry.create!(
+    PgSqlTriggers::TriggerRegistry.create!(
       trigger_name: "test_trigger",
       table_name: "test_users",
       version: 1,
@@ -15,13 +15,14 @@ RSpec.describe PgTriggers::Testing::SyntaxValidator do
         name: "test_trigger",
         table_name: "test_users",
         function_name: "test_function",
-        events: ["insert"]
+        events: ["insert"],
+        version: 1
       }.to_json,
       function_body: "CREATE OR REPLACE FUNCTION test_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;"
     )
   end
 
-  let(:validator) { PgTriggers::Testing::SyntaxValidator.new(registry) }
+  let(:validator) { PgSqlTriggers::Testing::SyntaxValidator.new(registry) }
 
   before do
     ActiveRecord::Base.connection.execute("CREATE TABLE IF NOT EXISTS test_users (id SERIAL PRIMARY KEY, name VARCHAR)")
@@ -148,9 +149,9 @@ RSpec.describe PgTriggers::Testing::SyntaxValidator do
   end
 end
 
-RSpec.describe PgTriggers::Testing::DryRun do
+RSpec.describe PgSqlTriggers::Testing::DryRun do
   let(:registry) do
-    PgTriggers::TriggerRegistry.create!(
+    PgSqlTriggers::TriggerRegistry.create!(
       trigger_name: "test_trigger",
       table_name: "test_users",
       version: 1,
@@ -161,14 +162,15 @@ RSpec.describe PgTriggers::Testing::DryRun do
         name: "test_trigger",
         table_name: "test_users",
         function_name: "test_function",
-        events: ["insert", "update"]
+        events: ["insert", "update"],
+        version: 1
       }.to_json,
       function_body: "CREATE OR REPLACE FUNCTION test_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;",
       condition: "NEW.status = 'active'"
     )
   end
 
-  let(:dry_run) { PgTriggers::Testing::DryRun.new(registry) }
+  let(:dry_run) { PgSqlTriggers::Testing::DryRun.new(registry) }
 
   describe "#generate_sql" do
     it "generates function creation SQL" do
@@ -213,9 +215,9 @@ RSpec.describe PgTriggers::Testing::DryRun do
   end
 end
 
-RSpec.describe PgTriggers::Testing::SafeExecutor do
+RSpec.describe PgSqlTriggers::Testing::SafeExecutor do
   let(:registry) do
-    PgTriggers::TriggerRegistry.create!(
+    PgSqlTriggers::TriggerRegistry.create!(
       trigger_name: "test_trigger",
       table_name: "test_users",
       version: 1,
@@ -226,13 +228,14 @@ RSpec.describe PgTriggers::Testing::SafeExecutor do
         name: "test_trigger",
         table_name: "test_users",
         function_name: "test_function",
-        events: ["insert"]
+        events: ["insert"],
+        version: 1
       }.to_json,
       function_body: "CREATE OR REPLACE FUNCTION test_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;"
     )
   end
 
-  let(:executor) { PgTriggers::Testing::SafeExecutor.new(registry) }
+  let(:executor) { PgSqlTriggers::Testing::SafeExecutor.new(registry) }
 
   before do
     ActiveRecord::Base.connection.execute("CREATE TABLE IF NOT EXISTS test_users (id SERIAL PRIMARY KEY, name VARCHAR)")
@@ -278,9 +281,9 @@ RSpec.describe PgTriggers::Testing::SafeExecutor do
   end
 end
 
-RSpec.describe PgTriggers::Testing::FunctionTester do
+RSpec.describe PgSqlTriggers::Testing::FunctionTester do
   let(:registry) do
-    PgTriggers::TriggerRegistry.create!(
+    PgSqlTriggers::TriggerRegistry.create!(
       trigger_name: "test_trigger",
       table_name: "test_users",
       version: 1,
@@ -291,13 +294,14 @@ RSpec.describe PgTriggers::Testing::FunctionTester do
         name: "test_trigger",
         table_name: "test_users",
         function_name: "test_function",
-        events: ["insert"]
+        events: ["insert"],
+        version: 1
       }.to_json,
       function_body: "CREATE OR REPLACE FUNCTION test_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;"
     )
   end
 
-  let(:tester) { PgTriggers::Testing::FunctionTester.new(registry) }
+  let(:tester) { PgSqlTriggers::Testing::FunctionTester.new(registry) }
 
   describe "#test_function_only" do
     it "creates function in transaction" do

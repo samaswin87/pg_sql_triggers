@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   module SQL
     autoload :Capsule, "pg_sql_triggers/sql/capsule"
     autoload :Executor, "pg_sql_triggers/sql/executor"

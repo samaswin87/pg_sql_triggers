@@ -2,13 +2,16 @@
 
 require "spec_helper"
 
-RSpec.describe PgTriggers::TablesController, type: :controller do
-  routes { PgTriggers::Engine.routes }
+RSpec.describe PgSqlTriggers::TablesController, type: :controller do
+  routes { PgSqlTriggers::Engine.routes }
 
   before do
+    # Configure view paths
+    engine_view_path = PgTriggers::Engine.root.join("app/views").to_s
+    controller.prepend_view_path(engine_view_path) if controller.respond_to?(:prepend_view_path)
     ActiveRecord::Base.connection.execute("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name VARCHAR)")
     
-    PgTriggers::TriggerRegistry.create!(
+    PgSqlTriggers::TriggerRegistry.create!(
       trigger_name: "user_trigger",
       table_name: "users",
       version: 1,
@@ -24,7 +27,7 @@ RSpec.describe PgTriggers::TablesController, type: :controller do
 
   describe "GET #index" do
     it "loads tables with triggers" do
-      allow(PgTriggers::DatabaseIntrospection).to receive_message_chain(:new, :tables_with_triggers).and_return([
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :tables_with_triggers).and_return([
         { table_name: "users", trigger_count: 1, registry_triggers: [], database_triggers: [] }
       ])
 
@@ -34,7 +37,7 @@ RSpec.describe PgTriggers::TablesController, type: :controller do
     end
 
     it "only shows tables with triggers" do
-      allow(PgTriggers::DatabaseIntrospection).to receive_message_chain(:new, :tables_with_triggers).and_return([
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :tables_with_triggers).and_return([
         { table_name: "users", trigger_count: 1, registry_triggers: [], database_triggers: [] },
         { table_name: "posts", trigger_count: 0, registry_triggers: [], database_triggers: [] }
       ])
@@ -46,12 +49,12 @@ RSpec.describe PgTriggers::TablesController, type: :controller do
 
   describe "GET #show" do
     it "loads table triggers and columns" do
-      allow(PgTriggers::DatabaseIntrospection).to receive_message_chain(:new, :table_triggers).and_return({
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :table_triggers).and_return({
         table_name: "users",
         registry_triggers: [],
         database_triggers: []
       })
-      allow(PgTriggers::DatabaseIntrospection).to receive_message_chain(:new, :table_columns).and_return([
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :table_columns).and_return([
         { name: "id", type: "integer", nullable: false }
       ])
 
@@ -61,14 +64,14 @@ RSpec.describe PgTriggers::TablesController, type: :controller do
     end
 
     it "responds with JSON format" do
-      allow(PgTriggers::DatabaseIntrospection).to receive_message_chain(:new, :table_triggers).and_return({
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :table_triggers).and_return({
         table_name: "users",
         registry_triggers: [
           double(id: 1, trigger_name: "user_trigger", definition: { function_name: "user_func" }.to_json, enabled: true, version: 1, source: "dsl")
         ],
         database_triggers: []
       })
-      allow(PgTriggers::DatabaseIntrospection).to receive_message_chain(:new, :table_columns).and_return([])
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :table_columns).and_return([])
 
       get :show, params: { id: "users" }, format: :json
       expect(response).to have_http_status(:success)

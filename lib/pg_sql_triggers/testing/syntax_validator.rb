@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   module Testing
     class SyntaxValidator
       def initialize(trigger_registry)
@@ -9,7 +9,9 @@ module PgTriggers
 
       # Validate DSL structure
       def validate_dsl
-        definition = JSON.parse(@trigger.definition)
+        return { valid: false, errors: ["Missing definition"], definition: {} } if @trigger.definition.blank?
+        
+        definition = JSON.parse(@trigger.definition) rescue {}
         errors = []
 
         errors << "Missing trigger name" if definition["name"].blank?
@@ -46,12 +48,38 @@ module PgTriggers
       # Validate WHEN condition syntax
       def validate_condition
         return { valid: true } if @trigger.condition.blank?
+        return { valid: false, error: "Table name is required for condition validation" } if @trigger.table_name.blank?
+        return { valid: false, error: "Function name is required for condition validation" } unless @trigger.definition.present?
 
-        # Try to parse condition in a dummy SELECT
-        test_sql = "SELECT * FROM #{@trigger.table_name} WHERE #{@trigger.condition} LIMIT 0"
+        definition = JSON.parse(@trigger.definition) rescue {}
+        function_name = definition["function_name"] || "test_validation_function"
+        sanitized_table = ActiveRecord::Base.connection.quote_string(@trigger.table_name)
+        sanitized_function = ActiveRecord::Base.connection.quote_string(function_name)
+        sanitized_condition = @trigger.condition
+        
+        # Validate condition by creating a temporary trigger with the condition
+        # This is the only way to validate WHEN conditions since they use NEW/OLD
+        test_function_sql = <<~SQL
+          CREATE OR REPLACE FUNCTION #{sanitized_function}() RETURNS TRIGGER AS $$
+          BEGIN
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql;
+        SQL
+        
+        test_trigger_sql = <<~SQL
+          CREATE TRIGGER test_validation_trigger
+          BEFORE INSERT ON #{sanitized_table}
+          FOR EACH ROW
+          WHEN (#{sanitized_condition})
+          EXECUTE FUNCTION #{sanitized_function}();
+        SQL
 
         ActiveRecord::Base.connection.execute("BEGIN")
-        ActiveRecord::Base.connection.execute(test_sql)
+        ActiveRecord::Base.connection.execute(test_function_sql)
+        ActiveRecord::Base.connection.execute(test_trigger_sql)
+        ActiveRecord::Base.connection.execute("DROP TRIGGER IF EXISTS test_validation_trigger ON #{sanitized_table}")
+        ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS #{sanitized_function}()")
         ActiveRecord::Base.connection.execute("ROLLBACK")
 
         { valid: true, message: "Condition syntax is valid" }

@@ -2,10 +2,10 @@
 
 require "spec_helper"
 
-RSpec.describe PgTriggers::DSL do
-  describe ".pg_trigger" do
+RSpec.describe PgSqlTriggers::DSL do
+  describe ".pg_sql_trigger" do
     it "creates a trigger definition and registers it" do
-      definition = PgTriggers::DSL.pg_trigger "test_trigger" do
+      definition = PgSqlTriggers::DSL.pg_sql_trigger "test_trigger" do
         table :users
         on :insert, :update
         function :test_function
@@ -13,7 +13,7 @@ RSpec.describe PgTriggers::DSL do
         enabled true
       end
 
-      expect(definition).to be_a(PgTriggers::DSL::TriggerDefinition)
+      expect(definition).to be_a(PgSqlTriggers::DSL::TriggerDefinition)
       expect(definition.name).to eq("test_trigger")
       expect(definition.table_name).to eq(:users)
       expect(definition.events).to eq(["insert", "update"])
@@ -23,8 +23,8 @@ RSpec.describe PgTriggers::DSL do
     end
 
     it "registers the trigger in the registry" do
-      expect(PgTriggers::Registry::Manager).to receive(:register).and_call_original
-      PgTriggers::DSL.pg_trigger "test_trigger" do
+      expect(PgSqlTriggers::Registry::Manager).to receive(:register).and_call_original
+      PgSqlTriggers::DSL.pg_sql_trigger "test_trigger" do
         table :users
         on :insert
         function :test_function
@@ -33,8 +33,8 @@ RSpec.describe PgTriggers::DSL do
   end
 end
 
-RSpec.describe PgTriggers::DSL::TriggerDefinition do
-  let(:definition) { PgTriggers::DSL::TriggerDefinition.new("test_trigger") }
+RSpec.describe PgSqlTriggers::DSL::TriggerDefinition do
+  let(:definition) { PgSqlTriggers::DSL::TriggerDefinition.new("test_trigger") }
 
   describe "#initialize" do
     it "sets default values" do

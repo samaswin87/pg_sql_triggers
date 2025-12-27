@@ -2,4 +2,4 @@
 //
 //= require_self
 
-// PgTriggers JavaScript
+// PgSqlTriggers JavaScript

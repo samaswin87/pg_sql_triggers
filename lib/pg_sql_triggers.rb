@@ -3,7 +3,7 @@
 require_relative "pg_sql_triggers/version"
 require_relative "pg_sql_triggers/engine"
 
-module PgTriggers
+module PgSqlTriggers
   class Error < StandardError; end
   class PermissionError < Error; end
   class DriftError < Error; end

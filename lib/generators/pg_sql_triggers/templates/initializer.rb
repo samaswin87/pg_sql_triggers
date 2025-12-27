@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-PgTriggers.configure do |config|
+PgSqlTriggers.configure do |config|
   # Enable or disable the production kill switch
   # When enabled, all destructive operations in production require explicit confirmation
   config.kill_switch_enabled = true

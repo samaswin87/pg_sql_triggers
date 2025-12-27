@@ -2,12 +2,15 @@
 
 require "spec_helper"
 
-RSpec.describe PgTriggers::DashboardController, type: :controller do
-  routes { PgTriggers::Engine.routes }
+RSpec.describe PgSqlTriggers::DashboardController, type: :controller do
+  routes { PgSqlTriggers::Engine.routes }
 
   before do
+    # Configure view paths
+    engine_view_path = PgTriggers::Engine.root.join("app/views").to_s
+    controller.prepend_view_path(engine_view_path) if controller.respond_to?(:prepend_view_path)
     # Create test triggers
-    PgTriggers::TriggerRegistry.create!(
+    PgSqlTriggers::TriggerRegistry.create!(
       trigger_name: "enabled_trigger",
       table_name: "users",
       version: 1,
@@ -15,7 +18,7 @@ RSpec.describe PgTriggers::DashboardController, type: :controller do
       checksum: "abc",
       source: "dsl"
     )
-    PgTriggers::TriggerRegistry.create!(
+    PgSqlTriggers::TriggerRegistry.create!(
       trigger_name: "disabled_trigger",
       table_name: "posts",
       version: 1,
@@ -39,9 +42,9 @@ RSpec.describe PgTriggers::DashboardController, type: :controller do
     end
 
     it "loads migration status" do
-      allow(PgTriggers::Migrator).to receive(:status).and_return([])
-      allow(PgTriggers::Migrator).to receive(:pending_migrations).and_return([])
-      allow(PgTriggers::Migrator).to receive(:current_version).and_return(0)
+      allow(PgSqlTriggers::Migrator).to receive(:status).and_return([])
+      allow(PgSqlTriggers::Migrator).to receive(:pending_migrations).and_return([])
+      allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(0)
 
       get :index
       expect(assigns(:migration_status)).to be_an(Array)
@@ -50,11 +53,11 @@ RSpec.describe PgTriggers::DashboardController, type: :controller do
     end
 
     it "handles pagination" do
-      allow(PgTriggers::Migrator).to receive(:status).and_return(
+      allow(PgSqlTriggers::Migrator).to receive(:status).and_return(
         (1..25).map { |i| { version: i, name: "migration_#{i}", status: "up", filename: "#{i}_migration.rb" } }
       )
-      allow(PgTriggers::Migrator).to receive(:pending_migrations).and_return([])
-      allow(PgTriggers::Migrator).to receive(:current_version).and_return(0)
+      allow(PgSqlTriggers::Migrator).to receive(:pending_migrations).and_return([])
+      allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(0)
 
       get :index, params: { page: 1, per_page: 10 }
       expect(assigns(:migration_status).count).to eq(10)
@@ -62,16 +65,16 @@ RSpec.describe PgTriggers::DashboardController, type: :controller do
     end
 
     it "caps per_page at 100" do
-      allow(PgTriggers::Migrator).to receive(:status).and_return([])
-      allow(PgTriggers::Migrator).to receive(:pending_migrations).and_return([])
-      allow(PgTriggers::Migrator).to receive(:current_version).and_return(0)
+      allow(PgSqlTriggers::Migrator).to receive(:status).and_return([])
+      allow(PgSqlTriggers::Migrator).to receive(:pending_migrations).and_return([])
+      allow(PgSqlTriggers::Migrator).to receive(:current_version).and_return(0)
 
       get :index, params: { per_page: 200 }
       expect(assigns(:per_page)).to eq(100)
     end
 
     it "handles errors gracefully" do
-      allow(PgTriggers::Migrator).to receive(:status).and_raise(StandardError.new("Error"))
+      allow(PgSqlTriggers::Migrator).to receive(:status).and_raise(StandardError.new("Error"))
       allow(Rails.logger).to receive(:error)
 
       get :index

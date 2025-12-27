@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   module DSL
     class TriggerDefinition
       attr_accessor :name, :table_name, :events, :function_name, :environments, :condition

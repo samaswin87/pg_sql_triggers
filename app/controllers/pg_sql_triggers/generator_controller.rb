@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   class GeneratorController < ApplicationController
     # Permissions: Require OPERATOR level for generation
     before_action :check_operator_permission
@@ -8,23 +8,23 @@ module PgTriggers
     # GET /generator/new
     # Display the multi-step form wizard
     def new
-      @form = PgTriggers::Generator::Form.new
+      @form = PgSqlTriggers::Generator::Form.new
       @available_tables = fetch_available_tables
     end
 
     # POST /generator/preview
     # Preview generated DSL and function stub (AJAX or regular POST)
     def preview
-      @form = PgTriggers::Generator::Form.new(generator_params)
+      @form = PgSqlTriggers::Generator::Form.new(generator_params)
 
       if @form.valid?
         # Validate SQL function body (required field)
         @sql_validation = validate_function_sql(@form)
 
-        @dsl_content = PgTriggers::Generator::Service.generate_dsl(@form)
+        @dsl_content = PgSqlTriggers::Generator::Service.generate_dsl(@form)
         # Use function_body (required)
         @function_content = @form.function_body
-        @file_paths = PgTriggers::Generator::Service.file_paths(@form)
+        @file_paths = PgSqlTriggers::Generator::Service.file_paths(@form)
 
         render :preview
       else
@@ -36,7 +36,7 @@ module PgTriggers
     # POST /generator/create
     # Actually create the files and register in TriggerRegistry
     def create
-      @form = PgTriggers::Generator::Form.new(generator_params)
+      @form = PgSqlTriggers::Generator::Form.new(generator_params)
 
       if @form.valid?
         # Validate SQL function body (required field)
@@ -44,15 +44,15 @@ module PgTriggers
         unless sql_validation[:valid]
           flash[:alert] = "Cannot create trigger: SQL validation failed - #{sql_validation[:error]}"
           @available_tables = fetch_available_tables
-          @dsl_content = PgTriggers::Generator::Service.generate_dsl(@form)
+          @dsl_content = PgSqlTriggers::Generator::Service.generate_dsl(@form)
           @function_content = @form.function_body
-          @file_paths = PgTriggers::Generator::Service.file_paths(@form)
+          @file_paths = PgSqlTriggers::Generator::Service.file_paths(@form)
           @sql_validation = sql_validation
           render :preview
           return
         end
 
-        result = PgTriggers::Generator::Service.create_trigger(@form, actor: current_actor)
+        result = PgSqlTriggers::Generator::Service.create_trigger(@form, actor: current_actor)
 
         if result[:success]
           files_msg = "Migration: #{result[:migration_path]}, DSL: #{result[:dsl_path]}"
@@ -81,7 +81,7 @@ module PgTriggers
         return
       end
 
-      validator = PgTriggers::DatabaseIntrospection.new
+      validator = PgSqlTriggers::DatabaseIntrospection.new
       result = validator.validate_table(table_name)
       render json: result
     end
@@ -104,13 +104,13 @@ module PgTriggers
     end
 
     def check_operator_permission
-      unless PgTriggers::Permissions.can?(current_actor, :apply_trigger)
+      unless PgSqlTriggers::Permissions.can?(current_actor, :apply_trigger)
         redirect_to root_path, alert: "Insufficient permissions. Operator role required."
       end
     end
 
     def fetch_available_tables
-      PgTriggers::DatabaseIntrospection.new.list_tables
+      PgSqlTriggers::DatabaseIntrospection.new.list_tables
     rescue => e
       Rails.logger.error("Failed to fetch tables: #{e.message}")
       []
@@ -131,12 +131,12 @@ module PgTriggers
       return nil if form.function_body.blank?
 
       # Create a temporary trigger registry object for validation
-      temp_registry = PgTriggers::TriggerRegistry.new(
+      temp_registry = PgSqlTriggers::TriggerRegistry.new(
         trigger_name: form.trigger_name,
         function_body: form.function_body
       )
 
-      validator = PgTriggers::Testing::SyntaxValidator.new(temp_registry)
+      validator = PgSqlTriggers::Testing::SyntaxValidator.new(temp_registry)
       validator.validate_function_syntax
     rescue => e
       { valid: false, error: "Validation error: #{e.message}" }

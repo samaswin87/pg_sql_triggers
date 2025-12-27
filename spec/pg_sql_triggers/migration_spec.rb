@@ -2,8 +2,8 @@
 
 require "spec_helper"
 
-RSpec.describe PgTriggers::Migration do
-  let(:migration) { Class.new(PgTriggers::Migration).new }
+RSpec.describe PgSqlTriggers::Migration do
+  let(:migration) { Class.new(PgSqlTriggers::Migration).new }
 
   describe "#execute" do
     it "executes SQL through connection" do
@@ -13,12 +13,12 @@ RSpec.describe PgTriggers::Migration do
   end
 
   it "inherits from ActiveRecord::Migration" do
-    expect(PgTriggers::Migration.superclass).to eq(ActiveRecord::Migration[6.0])
+    expect(PgSqlTriggers::Migration.superclass).to eq(ActiveRecord::Migration[6.0])
   end
 end
 
-RSpec.describe PgTriggers::ApplicationController, type: :controller do
-  controller(PgTriggers::ApplicationController) do
+RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
+  controller(PgSqlTriggers::ApplicationController) do
     def index
       render plain: "OK"
     end

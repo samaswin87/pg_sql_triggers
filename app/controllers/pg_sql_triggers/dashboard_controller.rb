@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   class DashboardController < ApplicationController
     def index
-      @triggers = PgTriggers::TriggerRegistry.all.order(created_at: :desc)
+      @triggers = PgSqlTriggers::TriggerRegistry.all.order(created_at: :desc)
       @stats = {
         total: @triggers.count,
         enabled: @triggers.enabled.count,
@@ -13,9 +13,9 @@ module PgTriggers
       
       # Migration status with pagination
       begin
-        all_migrations = PgTriggers::Migrator.status
-        @pending_migrations = PgTriggers::Migrator.pending_migrations
-        @current_migration_version = PgTriggers::Migrator.current_version
+        all_migrations = PgSqlTriggers::Migrator.status
+        @pending_migrations = PgSqlTriggers::Migrator.pending_migrations
+        @current_migration_version = PgSqlTriggers::Migrator.current_version
         
         # Pagination
         @per_page = (params[:per_page] || 20).to_i

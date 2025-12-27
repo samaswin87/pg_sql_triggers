@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   module Drift
     autoload :Detector, "pg_sql_triggers/drift/detector"
     autoload :Reporter, "pg_sql_triggers/drift/reporter"

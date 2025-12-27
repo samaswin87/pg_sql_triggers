@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   module Testing
     class DryRun
       def initialize(trigger_registry)

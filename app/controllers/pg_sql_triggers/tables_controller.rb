@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   class TablesController < ApplicationController
     def index
-      all_tables = PgTriggers::DatabaseIntrospection.new.tables_with_triggers
+      all_tables = PgSqlTriggers::DatabaseIntrospection.new.tables_with_triggers
       # Only show tables that have at least one trigger
       @tables_with_triggers = all_tables.select { |t| t[:trigger_count] > 0 }
       @total_tables = @tables_with_triggers.count
@@ -11,8 +11,8 @@ module PgTriggers
     end
 
     def show
-      @table_info = PgTriggers::DatabaseIntrospection.new.table_triggers(params[:id])
-      @columns = PgTriggers::DatabaseIntrospection.new.table_columns(params[:id])
+      @table_info = PgSqlTriggers::DatabaseIntrospection.new.table_triggers(params[:id])
+      @columns = PgSqlTriggers::DatabaseIntrospection.new.table_columns(params[:id])
       
       respond_to do |format|
         format.html

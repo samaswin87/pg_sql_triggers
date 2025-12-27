@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-module PgTriggers
-  class TriggerRegistry < PgTriggers::ApplicationRecord
+module PgSqlTriggers
+  class TriggerRegistry < PgSqlTriggers::ApplicationRecord
     self.table_name = "pg_sql_triggers_registry"
 
     # Validations
@@ -21,12 +21,12 @@ module PgTriggers
     # Drift states
     def drift_state
       # This will be implemented by the Drift::Detector
-      PgTriggers::Drift.detect(trigger_name)
+      PgSqlTriggers::Drift.detect(trigger_name)
     end
 
     def enable!
       # Check if trigger exists in database before trying to enable it
-      introspection = PgTriggers::DatabaseIntrospection.new
+      introspection = PgSqlTriggers::DatabaseIntrospection.new
       if introspection.trigger_exists?(trigger_name)
         # Enable the trigger in PostgreSQL
         sql = "ALTER TABLE #{quote_identifier(table_name)} ENABLE TRIGGER #{quote_identifier(trigger_name)};"
@@ -46,7 +46,7 @@ module PgTriggers
 
     def disable!
       # Check if trigger exists in database before trying to disable it
-      introspection = PgTriggers::DatabaseIntrospection.new
+      introspection = PgSqlTriggers::DatabaseIntrospection.new
       if introspection.trigger_exists?(trigger_name)
         # Disable the trigger in PostgreSQL
         sql = "ALTER TABLE #{quote_identifier(table_name)} DISABLE TRIGGER #{quote_identifier(trigger_name)};"

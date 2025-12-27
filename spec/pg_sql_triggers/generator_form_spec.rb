@@ -2,16 +2,16 @@
 
 require "spec_helper"
 
-RSpec.describe PgTriggers::Generator::Form do
+RSpec.describe PgSqlTriggers::Generator::Form do
   describe "validations" do
     it "requires trigger_name" do
-      form = PgTriggers::Generator::Form.new
+      form = PgSqlTriggers::Generator::Form.new
       expect(form).not_to be_valid
       expect(form.errors[:trigger_name]).to include("can't be blank")
     end
 
     it "validates trigger_name format" do
-      form = PgTriggers::Generator::Form.new(trigger_name: "Invalid-Name!")
+      form = PgSqlTriggers::Generator::Form.new(trigger_name: "Invalid-Name!")
       expect(form).not_to be_valid
       expect(form.errors[:trigger_name]).to include("must contain only lowercase letters, numbers, and underscores")
 
@@ -21,13 +21,13 @@ RSpec.describe PgTriggers::Generator::Form do
     end
 
     it "requires table_name" do
-      form = PgTriggers::Generator::Form.new(trigger_name: "test_trigger")
+      form = PgSqlTriggers::Generator::Form.new(trigger_name: "test_trigger")
       expect(form).not_to be_valid
       expect(form.errors[:table_name]).to include("can't be blank")
     end
 
     it "requires function_name" do
-      form = PgTriggers::Generator::Form.new(
+      form = PgSqlTriggers::Generator::Form.new(
         trigger_name: "test_trigger",
         table_name: "users"
       )
@@ -36,7 +36,7 @@ RSpec.describe PgTriggers::Generator::Form do
     end
 
     it "validates function_name format" do
-      form = PgTriggers::Generator::Form.new(
+      form = PgSqlTriggers::Generator::Form.new(
         trigger_name: "test_trigger",
         table_name: "users",
         function_name: "Invalid-Function!"
@@ -46,7 +46,7 @@ RSpec.describe PgTriggers::Generator::Form do
     end
 
     it "requires version to be positive integer" do
-      form = PgTriggers::Generator::Form.new(
+      form = PgSqlTriggers::Generator::Form.new(
         trigger_name: "test_trigger",
         table_name: "users",
         function_name: "test_function",
@@ -64,7 +64,7 @@ RSpec.describe PgTriggers::Generator::Form do
     end
 
     it "requires function_body" do
-      form = PgTriggers::Generator::Form.new(
+      form = PgSqlTriggers::Generator::Form.new(
         trigger_name: "test_trigger",
         table_name: "users",
         function_name: "test_function"
@@ -74,7 +74,7 @@ RSpec.describe PgTriggers::Generator::Form do
     end
 
     it "requires at least one event" do
-      form = PgTriggers::Generator::Form.new(
+      form = PgSqlTriggers::Generator::Form.new(
         trigger_name: "test_trigger",
         table_name: "users",
         function_name: "test_function",
@@ -86,7 +86,7 @@ RSpec.describe PgTriggers::Generator::Form do
     end
 
     it "validates that function_body contains function_name" do
-      form = PgTriggers::Generator::Form.new(
+      form = PgSqlTriggers::Generator::Form.new(
         trigger_name: "test_trigger",
         table_name: "users",
         function_name: "test_function",
@@ -98,7 +98,7 @@ RSpec.describe PgTriggers::Generator::Form do
     end
 
     it "allows function_name with schema prefix" do
-      form = PgTriggers::Generator::Form.new(
+      form = PgSqlTriggers::Generator::Form.new(
         trigger_name: "test_trigger",
         table_name: "users",
         function_name: "test_function",
@@ -111,48 +111,48 @@ RSpec.describe PgTriggers::Generator::Form do
 
   describe "initialization" do
     it "sets default version to 1" do
-      form = PgTriggers::Generator::Form.new
+      form = PgSqlTriggers::Generator::Form.new
       expect(form.version).to eq(1)
     end
 
     it "converts enabled to boolean" do
-      form = PgTriggers::Generator::Form.new(enabled: "1")
+      form = PgSqlTriggers::Generator::Form.new(enabled: "1")
       expect(form.enabled).to be true
 
-      form = PgTriggers::Generator::Form.new(enabled: "0")
+      form = PgSqlTriggers::Generator::Form.new(enabled: "0")
       expect(form.enabled).to be false
 
-      form = PgTriggers::Generator::Form.new(enabled: 1)
+      form = PgSqlTriggers::Generator::Form.new(enabled: 1)
       expect(form.enabled).to be true
 
-      form = PgTriggers::Generator::Form.new(enabled: nil)
+      form = PgSqlTriggers::Generator::Form.new(enabled: nil)
       expect(form.enabled).to be true
     end
 
     it "defaults enabled to true" do
-      form = PgTriggers::Generator::Form.new
+      form = PgSqlTriggers::Generator::Form.new
       expect(form.enabled).to be true
     end
 
     it "defaults generate_function_stub to true" do
-      form = PgTriggers::Generator::Form.new
+      form = PgSqlTriggers::Generator::Form.new
       expect(form.generate_function_stub).to be true
     end
 
     it "defaults events to empty array" do
-      form = PgTriggers::Generator::Form.new
+      form = PgSqlTriggers::Generator::Form.new
       expect(form.events).to eq([])
     end
 
     it "defaults environments to empty array" do
-      form = PgTriggers::Generator::Form.new
+      form = PgSqlTriggers::Generator::Form.new
       expect(form.environments).to eq([])
     end
   end
 
   describe "#default_function_body" do
     it "generates function body with function_name" do
-      form = PgTriggers::Generator::Form.new(function_name: "my_function")
+      form = PgSqlTriggers::Generator::Form.new(function_name: "my_function")
       body = form.default_function_body
       
       expect(body).to include("CREATE OR REPLACE FUNCTION my_function()")
@@ -161,7 +161,7 @@ RSpec.describe PgTriggers::Generator::Form do
     end
 
     it "uses placeholder when function_name is blank" do
-      form = PgTriggers::Generator::Form.new
+      form = PgSqlTriggers::Generator::Form.new
       body = form.default_function_body
       expect(body).to include("function_name")
     end
@@ -169,7 +169,7 @@ RSpec.describe PgTriggers::Generator::Form do
 
   describe "valid form" do
     let(:valid_form) do
-      PgTriggers::Generator::Form.new(
+      PgSqlTriggers::Generator::Form.new(
         trigger_name: "test_trigger",
         table_name: "users",
         function_name: "test_function",

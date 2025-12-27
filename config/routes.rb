@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 begin
-  PgTriggers::Engine.routes.draw do
+  PgSqlTriggers::Engine.routes.draw do
     root to: 'dashboard#index'
 
     resources :tables, only: %i[index show]

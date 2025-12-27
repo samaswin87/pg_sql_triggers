@@ -47,7 +47,7 @@ This gem **manages lifecycle**, not business logic.
 Developers declare triggers using Ruby DSL:
 
 ```ruby
-pg_trigger "users_email_validation" do
+pg_sql_trigger "users_email_validation" do
   table :users
   on :insert, :update
   function :validate_user_email
@@ -139,12 +139,12 @@ Drift states:
 
 Provide console APIs:
 
-PgTrigger.list
-PgTrigger.enabled
-PgTrigger.disabled
-PgTrigger.for_table(:users)
-PgTrigger.diff
-PgTrigger.validate!
+PgSqlTrigger.list
+PgSqlTrigger.enabled
+PgSqlTrigger.disabled
+PgSqlTrigger.for_table(:users)
+PgSqlTrigger.diff
+PgSqlTrigger.validate!
 
 No raw SQL required by users.
 

@@ -1,6 +1,6 @@
 ===============================================================================
 
-PgTriggers has been installed!
+PgSqlTriggers has been installed!
 
 Next steps:
 
@@ -8,14 +8,14 @@ Next steps:
    $ rails db:migrate
 
 2. Mount the engine in your routes.rb (already done):
-   mount PgTriggers::Engine => "/pg_sql_triggers"
+   mount PgSqlTriggers::Engine => "/pg_sql_triggers"
 
 3. Configure the gem in config/initializers/pg_sql_triggers.rb
 
 4. Create your first trigger:
 
    Option A: Using DSL (app/triggers/example_trigger.rb):
-   PgTriggers::DSL.pg_trigger "example_guard" do
+   PgSqlTriggers::DSL.pg_sql_trigger "example_guard" do
      table :users
      on :insert, :update
      function :validate_user_rules

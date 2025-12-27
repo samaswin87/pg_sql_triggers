@@ -32,6 +32,9 @@ unless Rails.application
       config.secret_key_base = "test_secret_key_base"
       config.logger = Logger.new(STDOUT)
       config.log_level = :error
+      
+      # Add engine view paths
+      config.paths["app/views"] << PgSqlTriggers::Engine.root.join("app/views").to_s
     end
   end
   
@@ -96,6 +99,14 @@ RSpec.configure do |config|
   config.include ActiveSupport::Testing::TimeHelpers
   if defined?(ActionController::TestCase)
     config.include ActionController::TestCase::Behavior, type: :controller
+  end
+
+  # Configure view paths for controller specs - ensure engine views are found
+  config.before(:each, type: :controller) do
+    engine_view_path = PgSqlTriggers::Engine.root.join("app/views").to_s
+    if controller.respond_to?(:prepend_view_path)
+      controller.prepend_view_path(engine_view_path)
+    end
   end
 
   # Use database transactions for tests (only if rspec-rails is available)

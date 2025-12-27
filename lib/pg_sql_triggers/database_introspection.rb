@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   class DatabaseIntrospection
     # Default tables to exclude from listing (Rails defaults and pg_sql_triggers internal tables)
     DEFAULT_EXCLUDED_TABLES = %w[
@@ -12,7 +12,7 @@ module PgTriggers
 
     # Get list of all excluded tables (defaults + user-configured)
     def excluded_tables
-      (DEFAULT_EXCLUDED_TABLES + Array(PgTriggers.excluded_tables)).uniq
+      (DEFAULT_EXCLUDED_TABLES + Array(PgSqlTriggers.excluded_tables)).uniq
     end
 
     # Get list of all user tables in the database
@@ -28,8 +28,8 @@ module PgTriggers
       result = ActiveRecord::Base.connection.execute(sql)
       tables = result.map { |row| row["table_name"] }
       tables.reject { |table| excluded_tables.include?(table) }
-    rescue => e
-      Rails.logger.error("Failed to fetch tables: #{e.message}")
+    rescue StandardError => e
+      Rails.logger.error("Failed to fetch tables: #{e.message}") if defined?(Rails.logger)
       []
     end
 
@@ -121,7 +121,7 @@ module PgTriggers
     def trigger_exists?(trigger_name)
       sql = <<~SQL
         SELECT COUNT(*) as count
-        FROM pg_trigger
+        FROM pg_sql_trigger
         WHERE tgname = '#{sanitize(trigger_name)}'
       SQL
 
@@ -135,7 +135,7 @@ module PgTriggers
       tables = list_tables
       
       # Get all triggers from registry
-      triggers_by_table = PgTriggers::TriggerRegistry.all.group_by(&:table_name)
+      triggers_by_table = PgSqlTriggers::TriggerRegistry.all.group_by(&:table_name)
       
       # Get actual database triggers
       db_triggers_sql = <<~SQL
@@ -144,7 +144,7 @@ module PgTriggers
           c.relname as table_name,
           p.proname as function_name,
           pg_get_triggerdef(t.oid) as trigger_definition
-        FROM pg_trigger t
+        FROM pg_sql_trigger t
         JOIN pg_class c ON t.tgrelid = c.oid
         JOIN pg_proc p ON t.tgfoid = p.oid
         WHERE NOT t.tgisinternal
@@ -195,7 +195,7 @@ module PgTriggers
     # Get triggers for a specific table
     def table_triggers(table_name)
       # From registry
-      registry_triggers = PgTriggers::TriggerRegistry.for_table(table_name)
+      registry_triggers = PgSqlTriggers::TriggerRegistry.for_table(table_name)
       
       # From database
       db_triggers_sql = <<~SQL
@@ -203,7 +203,7 @@ module PgTriggers
           t.tgname as trigger_name,
           p.proname as function_name,
           pg_get_triggerdef(t.oid) as trigger_definition
-        FROM pg_trigger t
+        FROM pg_sql_trigger t
         JOIN pg_class c ON t.tgrelid = c.oid
         JOIN pg_proc p ON t.tgfoid = p.oid
         WHERE NOT t.tgisinternal

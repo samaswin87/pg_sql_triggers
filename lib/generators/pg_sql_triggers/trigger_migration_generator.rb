@@ -4,7 +4,7 @@ require "rails/generators"
 require "rails/generators/migration"
 require "active_support/core_ext/string/inflections"
 
-module PgTriggers
+module PgSqlTriggers
   module Generators
     class TriggerMigrationGenerator < Rails::Generators::Base
       include Rails::Generators::Migration

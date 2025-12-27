@@ -4,7 +4,7 @@ require "ostruct"
 require "active_support/core_ext/string/inflections"
 require "active_support/core_ext/module/delegation"
 
-module PgTriggers
+module PgSqlTriggers
   class Migrator
     MIGRATIONS_TABLE_NAME = "trigger_migrations"
 
@@ -152,7 +152,7 @@ module PgTriggers
         # Try to find the class, trying multiple patterns:
         # 1. Direct name (for backwards compatibility)
         # 2. With "Add" prefix (for new migrations following Rails conventions)
-        # 3. With PgTriggers namespace
+        # 3. With PgSqlTriggers namespace
         migration_class = begin
           base_class_name.constantize
         rescue NameError
@@ -161,11 +161,11 @@ module PgTriggers
             "Add#{base_class_name}".constantize
           rescue NameError
             begin
-              # Try with PgTriggers namespace
-              "PgTriggers::#{base_class_name}".constantize
+              # Try with PgSqlTriggers namespace
+              "PgSqlTriggers::#{base_class_name}".constantize
             rescue NameError
-              # Try with both Add prefix and PgTriggers namespace
-              "PgTriggers::Add#{base_class_name}".constantize
+              # Try with both Add prefix and PgSqlTriggers namespace
+              "PgSqlTriggers::Add#{base_class_name}".constantize
             end
           end
         end
@@ -225,10 +225,10 @@ module PgTriggers
       def cleanup_orphaned_registry_entries
         return unless ActiveRecord::Base.connection.table_exists?("pg_sql_triggers_registry")
 
-        introspection = PgTriggers::DatabaseIntrospection.new
+        introspection = PgSqlTriggers::DatabaseIntrospection.new
         
         # Get all triggers from registry
-        registry_triggers = PgTriggers::TriggerRegistry.all
+        registry_triggers = PgSqlTriggers::TriggerRegistry.all
         
         # Remove registry entries for triggers that don't exist in database
         registry_triggers.each do |registry_trigger|

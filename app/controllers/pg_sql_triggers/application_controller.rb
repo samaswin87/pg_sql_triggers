@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-module PgTriggers
+module PgSqlTriggers
   class ApplicationController < ActionController::Base
-    include PgTriggers::Engine.routes.url_helpers
+    include PgSqlTriggers::Engine.routes.url_helpers
     
     protect_from_forgery with: :exception
     layout "pg_sql_triggers/application"

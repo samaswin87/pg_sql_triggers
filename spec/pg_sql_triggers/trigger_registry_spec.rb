@@ -2,10 +2,10 @@
 
 require "spec_helper"
 
-RSpec.describe PgTriggers::TriggerRegistry do
+RSpec.describe PgSqlTriggers::TriggerRegistry do
   describe "validations" do
     it "requires trigger_name" do
-      registry = PgTriggers::TriggerRegistry.new(
+      registry = PgSqlTriggers::TriggerRegistry.new(
         table_name: "users",
         version: 1,
         checksum: "abc",
@@ -16,7 +16,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
     end
 
     it "requires unique trigger_name" do
-      PgTriggers::TriggerRegistry.create!(
+      PgSqlTriggers::TriggerRegistry.create!(
         trigger_name: "unique_trigger",
         table_name: "users",
         version: 1,
@@ -24,7 +24,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
         source: "dsl"
       )
 
-      registry = PgTriggers::TriggerRegistry.new(
+      registry = PgSqlTriggers::TriggerRegistry.new(
         trigger_name: "unique_trigger",
         table_name: "posts",
         version: 1,
@@ -36,7 +36,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
     end
 
     it "requires table_name" do
-      registry = PgTriggers::TriggerRegistry.new(
+      registry = PgSqlTriggers::TriggerRegistry.new(
         trigger_name: "test_trigger",
         version: 1,
         checksum: "abc",
@@ -47,7 +47,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
     end
 
     it "requires version to be present and positive integer" do
-      registry = PgTriggers::TriggerRegistry.new(
+      registry = PgSqlTriggers::TriggerRegistry.new(
         trigger_name: "test_trigger",
         table_name: "users",
         version: nil,
@@ -69,7 +69,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
     end
 
     it "requires checksum" do
-      registry = PgTriggers::TriggerRegistry.new(
+      registry = PgSqlTriggers::TriggerRegistry.new(
         trigger_name: "test_trigger",
         table_name: "users",
         version: 1,
@@ -80,7 +80,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
     end
 
     it "requires source to be one of valid values" do
-      registry = PgTriggers::TriggerRegistry.new(
+      registry = PgSqlTriggers::TriggerRegistry.new(
         trigger_name: "test_trigger",
         table_name: "users",
         version: 1,
@@ -99,7 +99,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
 
   describe "scopes" do
     before do
-      PgTriggers::TriggerRegistry.create!(
+      PgSqlTriggers::TriggerRegistry.create!(
         trigger_name: "enabled1",
         table_name: "users",
         version: 1,
@@ -107,7 +107,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
         checksum: "abc",
         source: "dsl"
       )
-      PgTriggers::TriggerRegistry.create!(
+      PgSqlTriggers::TriggerRegistry.create!(
         trigger_name: "enabled2",
         table_name: "posts",
         version: 1,
@@ -115,7 +115,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
         checksum: "def",
         source: "dsl"
       )
-      PgTriggers::TriggerRegistry.create!(
+      PgSqlTriggers::TriggerRegistry.create!(
         trigger_name: "disabled1",
         table_name: "comments",
         version: 1,
@@ -127,7 +127,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
 
     describe ".enabled" do
       it "returns only enabled triggers" do
-        result = PgTriggers::TriggerRegistry.enabled
+        result = PgSqlTriggers::TriggerRegistry.enabled
         expect(result.count).to eq(2)
         expect(result.map(&:trigger_name)).to contain_exactly("enabled1", "enabled2")
       end
@@ -135,7 +135,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
 
     describe ".disabled" do
       it "returns only disabled triggers" do
-        result = PgTriggers::TriggerRegistry.disabled
+        result = PgSqlTriggers::TriggerRegistry.disabled
         expect(result.count).to eq(1)
         expect(result.first.trigger_name).to eq("disabled1")
       end
@@ -143,7 +143,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
 
     describe ".for_table" do
       it "returns triggers for specific table" do
-        result = PgTriggers::TriggerRegistry.for_table("users")
+        result = PgSqlTriggers::TriggerRegistry.for_table("users")
         expect(result.count).to eq(1)
         expect(result.first.trigger_name).to eq("enabled1")
       end
@@ -151,7 +151,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
 
     describe ".for_environment" do
       before do
-        PgTriggers::TriggerRegistry.create!(
+        PgSqlTriggers::TriggerRegistry.create!(
           trigger_name: "prod_trigger",
           table_name: "users",
           version: 1,
@@ -160,7 +160,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
           source: "dsl",
           environment: "production"
         )
-        PgTriggers::TriggerRegistry.create!(
+        PgSqlTriggers::TriggerRegistry.create!(
           trigger_name: "no_env_trigger",
           table_name: "posts",
           version: 1,
@@ -172,14 +172,14 @@ RSpec.describe PgTriggers::TriggerRegistry do
       end
 
       it "returns triggers for specific environment or nil" do
-        result = PgTriggers::TriggerRegistry.for_environment("production")
+        result = PgSqlTriggers::TriggerRegistry.for_environment("production")
         expect(result.map(&:trigger_name)).to include("prod_trigger", "no_env_trigger")
       end
     end
 
     describe ".by_source" do
       before do
-        PgTriggers::TriggerRegistry.create!(
+        PgSqlTriggers::TriggerRegistry.create!(
           trigger_name: "generated_trigger",
           table_name: "users",
           version: 1,
@@ -190,10 +190,10 @@ RSpec.describe PgTriggers::TriggerRegistry do
       end
 
       it "returns triggers by source" do
-        dsl_triggers = PgTriggers::TriggerRegistry.by_source("dsl")
+        dsl_triggers = PgSqlTriggers::TriggerRegistry.by_source("dsl")
         expect(dsl_triggers.count).to eq(3)
 
-        generated_triggers = PgTriggers::TriggerRegistry.by_source("generated")
+        generated_triggers = PgSqlTriggers::TriggerRegistry.by_source("generated")
         expect(generated_triggers.count).to eq(1)
         expect(generated_triggers.first.trigger_name).to eq("generated_trigger")
       end
@@ -202,7 +202,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
 
   describe "#drift_state" do
     let(:registry) do
-      PgTriggers::TriggerRegistry.create!(
+      PgSqlTriggers::TriggerRegistry.create!(
         trigger_name: "test_trigger",
         table_name: "users",
         version: 1,
@@ -213,14 +213,14 @@ RSpec.describe PgTriggers::TriggerRegistry do
     end
 
     it "delegates to Drift.detect" do
-      expect(PgTriggers::Drift).to receive(:detect).with("test_trigger")
+      expect(PgSqlTriggers::Drift).to receive(:detect).with("test_trigger")
       registry.drift_state
     end
   end
 
   describe "#enable!" do
     let(:registry) do
-      PgTriggers::TriggerRegistry.create!(
+      PgSqlTriggers::TriggerRegistry.create!(
         trigger_name: "test_trigger",
         table_name: "users",
         version: 1,
@@ -267,7 +267,7 @@ RSpec.describe PgTriggers::TriggerRegistry do
 
   describe "#disable!" do
     let(:registry) do
-      PgTriggers::TriggerRegistry.create!(
+      PgSqlTriggers::TriggerRegistry.create!(
         trigger_name: "test_trigger",
         table_name: "users",
         version: 1,
