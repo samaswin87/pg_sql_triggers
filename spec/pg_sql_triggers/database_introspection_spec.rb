@@ -44,10 +44,16 @@ RSpec.describe PgSqlTriggers::DatabaseIntrospection do
     end
 
     it "handles errors gracefully" do
-      allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(StandardError.new("Connection error"))
+      # Create a new introspection instance to avoid connection state issues
+      introspection_instance = PgSqlTriggers::DatabaseIntrospection.new
+      
+      # Mock execute to raise error only for the specific SQL query in list_tables
+      connection = ActiveRecord::Base.connection
+      allow(connection).to receive(:execute).and_call_original
+      allow(connection).to receive(:execute).with(/FROM information_schema.tables/).and_raise(StandardError.new("Connection error"))
       allow(Rails.logger).to receive(:error)
       
-      tables = introspection.list_tables
+      tables = introspection_instance.list_tables
       expect(tables).to eq([])
     end
   end
@@ -234,7 +240,7 @@ RSpec.describe PgSqlTriggers::DatabaseIntrospection do
 
     it "handles errors when fetching database triggers" do
       allow(ActiveRecord::Base.connection).to receive(:execute).and_call_original
-      allow(ActiveRecord::Base.connection).to receive(:execute).with(/pg_sql_trigger/).and_raise(StandardError.new("Error"))
+      allow(ActiveRecord::Base.connection).to receive(:execute).with(/FROM pg_trigger t/).and_raise(StandardError.new("Error"))
       allow(Rails.logger).to receive(:error)
 
       result = introspection.table_triggers("test_users")

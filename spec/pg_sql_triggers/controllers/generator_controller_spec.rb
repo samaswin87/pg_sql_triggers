@@ -22,7 +22,7 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
 
   before do
     # Configure view paths
-    engine_view_path = PgTriggers::Engine.root.join("app/views").to_s
+    engine_view_path = PgSqlTriggers::Engine.root.join("app/views").to_s
     controller.prepend_view_path(engine_view_path) if controller.respond_to?(:prepend_view_path)
     
     # Mock Rails.root
@@ -77,7 +77,7 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
       invalid_params[:pg_sql_triggers_generator_form][:trigger_name] = ""
       
       allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(["users"])
-      allow(controller).to receive(:render).with(:new).and_return(nil)
+      allow(controller).to receive(:render).and_return(nil)
       post :preview, params: invalid_params
       expect(controller).to have_received(:render).with(:new)
     end

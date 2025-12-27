@@ -121,12 +121,19 @@ module PgSqlTriggers
     def trigger_exists?(trigger_name)
       sql = <<~SQL
         SELECT COUNT(*) as count
-        FROM pg_sql_trigger
-        WHERE tgname = '#{sanitize(trigger_name)}'
+        FROM pg_trigger t
+        JOIN pg_class c ON t.tgrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE t.tgname = '#{sanitize(trigger_name)}'
+        AND n.nspname = 'public'
+        AND NOT t.tgisinternal
       SQL
 
       result = ActiveRecord::Base.connection.execute(sql).first
       result["count"].to_i > 0
+    rescue => e
+      Rails.logger.error("Failed to check if trigger exists: #{e.message}") if defined?(Rails.logger)
+      false
     end
 
     # Get all tables with their triggers and functions
@@ -144,11 +151,12 @@ module PgSqlTriggers
           c.relname as table_name,
           p.proname as function_name,
           pg_get_triggerdef(t.oid) as trigger_definition
-        FROM pg_sql_trigger t
+        FROM pg_trigger t
         JOIN pg_class c ON t.tgrelid = c.oid
         JOIN pg_proc p ON t.tgfoid = p.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
         WHERE NOT t.tgisinternal
-        AND c.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+        AND n.nspname = 'public'
         ORDER BY c.relname, t.tgname
       SQL
       
@@ -203,12 +211,13 @@ module PgSqlTriggers
           t.tgname as trigger_name,
           p.proname as function_name,
           pg_get_triggerdef(t.oid) as trigger_definition
-        FROM pg_sql_trigger t
+        FROM pg_trigger t
         JOIN pg_class c ON t.tgrelid = c.oid
         JOIN pg_proc p ON t.tgfoid = p.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
         WHERE NOT t.tgisinternal
         AND c.relname = '#{sanitize(table_name)}'
-        AND c.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+        AND n.nspname = 'public'
         ORDER BY t.tgname
       SQL
       

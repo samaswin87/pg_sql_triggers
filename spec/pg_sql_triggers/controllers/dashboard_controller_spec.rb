@@ -7,7 +7,7 @@ RSpec.describe PgSqlTriggers::DashboardController, type: :controller do
 
   before do
     # Configure view paths
-    engine_view_path = PgTriggers::Engine.root.join("app/views").to_s
+    engine_view_path = PgSqlTriggers::Engine.root.join("app/views").to_s
     controller.prepend_view_path(engine_view_path) if controller.respond_to?(:prepend_view_path)
     # Create test triggers
     PgSqlTriggers::TriggerRegistry.create!(

@@ -26,42 +26,54 @@ module PgSqlTriggers
 
     def enable!
       # Check if trigger exists in database before trying to enable it
-      introspection = PgSqlTriggers::DatabaseIntrospection.new
-      if introspection.trigger_exists?(trigger_name)
-        # Enable the trigger in PostgreSQL
-        sql = "ALTER TABLE #{quote_identifier(table_name)} ENABLE TRIGGER #{quote_identifier(trigger_name)};"
-        ActiveRecord::Base.connection.execute(sql)
+      trigger_exists = false
+      begin
+        introspection = PgSqlTriggers::DatabaseIntrospection.new
+        trigger_exists = introspection.trigger_exists?(trigger_name)
+      rescue => e
+        # If checking fails, assume trigger doesn't exist and continue
+        Rails.logger.warn("Could not check if trigger exists: #{e.message}") if defined?(Rails.logger)
+      end
+      
+      if trigger_exists
+        begin
+          # Enable the trigger in PostgreSQL
+          sql = "ALTER TABLE #{quote_identifier(table_name)} ENABLE TRIGGER #{quote_identifier(trigger_name)};"
+          ActiveRecord::Base.connection.execute(sql)
+        rescue ActiveRecord::StatementInvalid => e
+          # If trigger doesn't exist or can't be enabled, continue to update registry
+          Rails.logger.warn("Could not enable trigger: #{e.message}") if defined?(Rails.logger)
+        end
       end
       
       # Update the registry record (always update, even if trigger doesn't exist)
       update!(enabled: true)
-    rescue ActiveRecord::StatementInvalid => e
-      # If something else goes wrong, still try to update registry
-      if e.message.include?("does not exist")
-        update!(enabled: true)
-      else
-        raise
-      end
     end
 
     def disable!
       # Check if trigger exists in database before trying to disable it
-      introspection = PgSqlTriggers::DatabaseIntrospection.new
-      if introspection.trigger_exists?(trigger_name)
-        # Disable the trigger in PostgreSQL
-        sql = "ALTER TABLE #{quote_identifier(table_name)} DISABLE TRIGGER #{quote_identifier(trigger_name)};"
-        ActiveRecord::Base.connection.execute(sql)
+      trigger_exists = false
+      begin
+        introspection = PgSqlTriggers::DatabaseIntrospection.new
+        trigger_exists = introspection.trigger_exists?(trigger_name)
+      rescue => e
+        # If checking fails, assume trigger doesn't exist and continue
+        Rails.logger.warn("Could not check if trigger exists: #{e.message}") if defined?(Rails.logger)
+      end
+      
+      if trigger_exists
+        begin
+          # Disable the trigger in PostgreSQL
+          sql = "ALTER TABLE #{quote_identifier(table_name)} DISABLE TRIGGER #{quote_identifier(trigger_name)};"
+          ActiveRecord::Base.connection.execute(sql)
+        rescue ActiveRecord::StatementInvalid => e
+          # If trigger doesn't exist or can't be disabled, continue to update registry
+          Rails.logger.warn("Could not disable trigger: #{e.message}") if defined?(Rails.logger)
+        end
       end
       
       # Update the registry record (always update, even if trigger doesn't exist)
       update!(enabled: false)
-    rescue ActiveRecord::StatementInvalid => e
-      # If something else goes wrong, still try to update registry
-      if e.message.include?("does not exist")
-        update!(enabled: false)
-      else
-        raise
-      end
     end
 
     private
