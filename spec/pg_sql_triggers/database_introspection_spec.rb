@@ -108,9 +108,7 @@ RSpec.describe PgSqlTriggers::DatabaseIntrospection do
 
     it "includes nullable information" do
       columns = introspection.table_columns("test_users")
-      columns.each do |col|
-        expect(col).to have_key(:nullable)
-      end
+      expect(columns).to all(have_key(:nullable))
     end
 
     it "returns columns in ordinal order" do

@@ -47,7 +47,7 @@ module PgSqlTriggers
                 {}
               end
               function_name = definition["function_name"] || definition[:function_name] ||
-                               definition["name"] || definition[:name]
+                              definition["name"] || definition[:name]
             end
 
             # Verify function exists in database by checking pg_proc

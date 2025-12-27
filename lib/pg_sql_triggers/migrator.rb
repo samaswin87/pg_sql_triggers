@@ -53,7 +53,7 @@ module PgSqlTriggers
             name = parts[1] || basename
           end
 
-          OpenStruct.new(
+          Struct.new(:version, :name, :filename, :path, keyword_init: true).new(
             version: version,
             name: name,
             filename: File.basename(file),

@@ -33,8 +33,7 @@ module PgSqlTriggers
         # Default to true for UI-generated triggers
         @enabled = case @enabled
                    when false, "0", 0 then false
-                   when true, "1", 1 then true
-                   else true # Default to true (including nil case)
+                   else true # true, "1", 1, or nil - default to true
                    end
         @generate_function_stub = true if @generate_function_stub.nil?
         @events ||= []

@@ -18,7 +18,7 @@ RSpec.describe PgSqlTriggers::MigrationsController, type: :controller do
     context "when applying all pending migrations" do
       let(:pending_migrations) do
         [
-          OpenStruct.new(version: 20_231_215_120_001, name: "test_migration", filename: "20231215120001_test_migration.rb")
+          Struct.new(:version, :name, :filename, keyword_init: true).new(version: 20_231_215_120_001, name: "test_migration", filename: "20231215120001_test_migration.rb")
         ]
       end
 

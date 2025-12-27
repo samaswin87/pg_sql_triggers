@@ -23,7 +23,7 @@ module PgSqlTriggers
         @page = (params[:page] || 1).to_i
         @total_migrations = all_migrations.count
         @total_pages = @total_migrations.positive? ? (@total_migrations.to_f / @per_page).ceil : 1
-        @page = [[@page, 1].max, @total_pages].min # Ensure page is within valid range
+        @page = @page.clamp(1, @total_pages) # Ensure page is within valid range
 
         offset = (@page - 1) * @per_page
         @migration_status = all_migrations.slice(offset, @per_page) || []

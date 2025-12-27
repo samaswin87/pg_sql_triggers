@@ -57,8 +57,9 @@ RSpec.describe PgSqlTriggers::Registry do
 
   describe ".validate!" do
     it "delegates to Validator.validate!" do
-      expect(PgSqlTriggers::Registry::Validator).to receive(:validate!).and_return(true)
+      allow(PgSqlTriggers::Registry::Validator).to receive(:validate!).and_return(true)
       result = described_class.validate!
+      expect(PgSqlTriggers::Registry::Validator).to have_received(:validate!)
       expect(result).to be true
     end
   end

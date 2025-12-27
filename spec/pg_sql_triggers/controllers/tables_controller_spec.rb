@@ -67,7 +67,7 @@ RSpec.describe PgSqlTriggers::TablesController, type: :controller do
       allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :table_triggers).and_return({
                                                                                                                table_name: "users",
                                                                                                                registry_triggers: [
-                                                                                                                 double(id: 1, trigger_name: "user_trigger", definition: { function_name: "user_func" }.to_json, enabled: true, version: 1, source: "dsl")
+                                                                                                                 instance_double(PgSqlTriggers::TriggerRegistry, id: 1, trigger_name: "user_trigger", definition: { function_name: "user_func" }.to_json, enabled: true, version: 1, source: "dsl")
                                                                                                                ],
                                                                                                                database_triggers: []
                                                                                                              })
