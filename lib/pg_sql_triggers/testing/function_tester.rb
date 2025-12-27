@@ -24,7 +24,8 @@ module PgSqlTriggers
             results[:output] << "✓ Function created in test transaction"
 
             # Try to invoke function directly (if test context provided)
-            if test_context.present? && results[:function_created]
+            # Note: Empty hash {} is not "present" in Rails, so check if it's not nil
+            if !test_context.nil? && results[:function_created]
               # This would require custom invocation logic
               # For now, just verify it was created - if function was successfully created,
               # we can assume it exists and is executable within the transaction
