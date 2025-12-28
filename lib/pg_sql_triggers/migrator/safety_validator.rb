@@ -91,7 +91,8 @@ module PgSqlTriggers
               operations[:creates] << create_info if create_info
             end
 
-            # Parse CREATE OR REPLACE statements (only for functions - PostgreSQL doesn't support CREATE OR REPLACE TRIGGER)
+            # Parse CREATE OR REPLACE statements
+            # (only for functions - PostgreSQL doesn't support CREATE OR REPLACE TRIGGER)
             if sql_normalized.match?(/CREATE\s+OR\s+REPLACE\s+FUNCTION/i)
               replace_info = parse_replace(sql)
               operations[:replaces] << replace_info if replace_info
@@ -157,21 +158,21 @@ module PgSqlTriggers
         # Parse CREATE OR REPLACE SQL statement (only for functions)
         def parse_replace(sql)
           # PostgreSQL doesn't support CREATE OR REPLACE TRIGGER, only functions
-          if sql.match?(/CREATE\s+OR\s+REPLACE\s+FUNCTION/i)
-            match = sql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(\w+)\s*\([^)]*\)/i)
-            return nil unless match
+          return unless sql.match?(/CREATE\s+OR\s+REPLACE\s+FUNCTION/i)
 
-            # Extract function body for comparison
-            body_match = sql.match(/\$\$(.+?)\$\$/m) || sql.match(/AS\s+(.+)/im)
-            function_body = body_match ? body_match[1].strip : sql
+          match = sql.match(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(\w+)\s*\([^)]*\)/i)
+          return nil unless match
 
-            {
-              type: :function,
-              name: match[1],
-              function_body: function_body,
-              sql: sql
-            }
-          end
+          # Extract function body for comparison
+          body_match = sql.match(/\$\$(.+?)\$\$/m) || sql.match(/AS\s+(.+)/im)
+          function_body = body_match ? body_match[1].strip : sql
+
+          {
+            type: :function,
+            name: match[1],
+            function_body: function_body,
+            sql: sql
+          }
         end
 
         # Detect explicit DROP + CREATE patterns
@@ -185,30 +186,30 @@ module PgSqlTriggers
               create[:type] == drop[:type] && create[:name] == drop[:name]
             end
 
-            if matching_create
-              object_type = drop[:type] == :trigger ? "trigger" : "function"
-              existing_object = case drop[:type]
-                                when :function
-                                  function_exists?(drop[:name])
-                                when :trigger
-                                  trigger_exists?(drop[:name])
-                                end
+            next unless matching_create
 
-              # Only flag as unsafe if the object actually exists
-              if existing_object
-                violations << {
-                  type: :drop_create_pattern,
-                  message: "Unsafe DROP + CREATE pattern detected for #{object_type} '#{drop[:name]}'. " \
-                           "Migration will drop existing #{object_type} and recreate it. " \
-                           "For functions, use CREATE OR REPLACE FUNCTION instead. " \
-                           "For triggers, drop and recreate is sometimes necessary, but ensure this is intentional.",
-                  drop_sql: drop[:sql],
-                  create_sql: matching_create[:sql],
-                  object_name: drop[:name],
-                  object_type: drop[:type]
-                }
-              end
-            end
+            object_type = drop[:type] == :trigger ? "trigger" : "function"
+            existing_object = case drop[:type]
+                              when :function
+                                function_exists?(drop[:name])
+                              when :trigger
+                                trigger_exists?(drop[:name])
+                              end
+
+            # Only flag as unsafe if the object actually exists
+            next unless existing_object
+
+            violations << {
+              type: :drop_create_pattern,
+              message: "Unsafe DROP + CREATE pattern detected for #{object_type} '#{drop[:name]}'. " \
+                       "Migration will drop existing #{object_type} and recreate it. " \
+                       "For functions, use CREATE OR REPLACE FUNCTION instead. " \
+                       "For triggers, drop and recreate is sometimes necessary, but ensure this is intentional.",
+              drop_sql: drop[:sql],
+              create_sql: matching_create[:sql],
+              object_name: drop[:name],
+              object_type: drop[:type]
+            }
           end
 
           violations
@@ -227,10 +228,10 @@ module PgSqlTriggers
         # Build error message from violations
         def build_error_message(violations, migration_class_name)
           message = []
-          message << "=" * 80
+          message << ("=" * 80)
           message << "UNSAFE MIGRATION DETECTED"
           message << "Migration: #{migration_class_name}"
-          message << "=" * 80
+          message << ("=" * 80)
           message << ""
           message << "The migration contains unsafe DROP + CREATE operations that would:"
           message << ""
@@ -239,7 +240,7 @@ module PgSqlTriggers
           message << "To proceed despite these warnings, set ALLOW_UNSAFE_MIGRATIONS=true"
           message << "or configure pg_sql_triggers to allow unsafe operations."
           message << ""
-          message << "=" * 80
+          message << ("=" * 80)
 
           message.join("\n")
         end
@@ -247,4 +248,3 @@ module PgSqlTriggers
     end
   end
 end
-
