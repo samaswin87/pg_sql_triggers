@@ -24,6 +24,9 @@ jobs:
           # Rails 8.0 requires Ruby >= 3.2
           - ruby-version: '3.1'
             rails-version: '8.0'
+          # Rails 6.1 support only up to Ruby 3.3 (exclude 3.4)
+          - ruby-version: '3.4'
+            rails-version: '6.1'
 
     services:
       postgres:
