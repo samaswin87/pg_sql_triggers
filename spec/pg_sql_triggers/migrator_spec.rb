@@ -514,5 +514,351 @@ RSpec.describe PgSqlTriggers::Migrator do
       expect(PgSqlTriggers::TriggerRegistry.count).to eq(1)
       expect(PgSqlTriggers::TriggerRegistry.first.trigger_name).to eq("existing_trigger")
     end
+
+    it "returns early if registry table doesn't exist" do
+      allow(ActiveRecord::Base.connection).to receive(:table_exists?).with("pg_sql_triggers_registry").and_return(false)
+      expect { described_class.cleanup_orphaned_registry_entries }.not_to raise_error
+    end
+  end
+
+  describe ".run_up with kill switch" do
+    let(:migration_content) do
+      <<~RUBY
+        class TestMigration < PgSqlTriggers::Migration
+          def up
+            execute "SELECT 1"
+          end
+        end
+      RUBY
+    end
+
+    before do
+      File.write(migrations_path.join("20231215120001_test_migration.rb"), migration_content)
+      described_class.ensure_migrations_table!
+    end
+
+    it "checks kill switch before running" do
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+        operation: :migrator_run_up,
+        environment: Rails.env,
+        confirmation: nil,
+        actor: { type: "Console", id: "Migrator.run_up" }
+      )
+      described_class.run_up
+    end
+
+    it "uses ENV confirmation text when provided" do
+      ENV["CONFIRMATION_TEXT"] = "EXECUTE MIGRATOR_RUN_UP"
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+        operation: :migrator_run_up,
+        environment: Rails.env,
+        confirmation: "EXECUTE MIGRATOR_RUN_UP",
+        actor: { type: "Console", id: "Migrator.run_up" }
+      )
+      described_class.run_up
+      ENV.delete("CONFIRMATION_TEXT")
+    end
+
+    it "uses explicit confirmation when provided" do
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+        operation: :migrator_run_up,
+        environment: Rails.env,
+        confirmation: "custom_confirmation",
+        actor: { type: "Console", id: "Migrator.run_up" }
+      )
+      described_class.run_up(confirmation: "custom_confirmation")
+    end
+  end
+
+  describe ".run_down with kill switch" do
+    let(:migration_content) do
+      <<~RUBY
+        class TestMigration < PgSqlTriggers::Migration
+          def up
+            execute "SELECT 1"
+          end
+          def down
+            execute "SELECT 2"
+          end
+        end
+      RUBY
+    end
+
+    before do
+      File.write(migrations_path.join("20231215120001_test_migration.rb"), migration_content)
+      described_class.ensure_migrations_table!
+      described_class.run_up
+    end
+
+    it "checks kill switch before running" do
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+        operation: :migrator_run_down,
+        environment: Rails.env,
+        confirmation: nil,
+        actor: { type: "Console", id: "Migrator.run_down" }
+      )
+      described_class.run_down
+    end
+  end
+
+  describe ".run_migration with class name resolution" do
+    context "with direct class name" do
+      let(:migration_content) do
+        <<~RUBY
+          class TestMigration < PgSqlTriggers::Migration
+            def up
+              execute "SELECT 1"
+            end
+            def down
+              execute "SELECT 2"
+            end
+          end
+        RUBY
+      end
+
+      before do
+        File.write(migrations_path.join("20231215120001_test_migration.rb"), migration_content)
+        described_class.ensure_migrations_table!
+      end
+
+      it "finds class with direct name" do
+        allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+        expect { described_class.run_up }.not_to raise_error
+      end
+    end
+
+    context "with Add prefix" do
+      let(:migration_content) do
+        <<~RUBY
+          class AddTestMigration < PgSqlTriggers::Migration
+            def up
+              execute "SELECT 1"
+            end
+            def down
+              execute "SELECT 2"
+            end
+          end
+        RUBY
+      end
+
+      before do
+        File.write(migrations_path.join("20231215120001_test_migration.rb"), migration_content)
+        described_class.ensure_migrations_table!
+      end
+
+      it "finds class with Add prefix" do
+        allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+        expect { described_class.run_up }.not_to raise_error
+      end
+    end
+
+    context "with PgSqlTriggers namespace" do
+      let(:migration_content) do
+        <<~RUBY
+          module PgSqlTriggers
+            class TestMigration < PgSqlTriggers::Migration
+              def up
+                execute "SELECT 1"
+              end
+              def down
+                execute "SELECT 2"
+              end
+            end
+          end
+        RUBY
+      end
+
+      before do
+        File.write(migrations_path.join("20231215120001_test_migration.rb"), migration_content)
+        described_class.ensure_migrations_table!
+      end
+
+      it "finds class with PgSqlTriggers namespace" do
+        allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+        expect { described_class.run_up }.not_to raise_error
+      end
+    end
+
+    context "with Add prefix and namespace" do
+      let(:migration_content) do
+        <<~RUBY
+          module PgSqlTriggers
+            class AddTestMigration < PgSqlTriggers::Migration
+              def up
+                execute "SELECT 1"
+              end
+              def down
+                execute "SELECT 2"
+              end
+            end
+          end
+        RUBY
+      end
+
+      before do
+        File.write(migrations_path.join("20231215120001_test_migration.rb"), migration_content)
+        described_class.ensure_migrations_table!
+      end
+
+      it "finds class with Add prefix and namespace" do
+        allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+        expect { described_class.run_up }.not_to raise_error
+      end
+    end
+  end
+
+  describe ".run_migration with safety validation" do
+    let(:safe_migration_content) do
+      <<~RUBY
+        class SafeMigration < PgSqlTriggers::Migration
+          def up
+            execute "CREATE OR REPLACE FUNCTION test_func() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;"
+          end
+        end
+      RUBY
+    end
+
+    before do
+      File.write(migrations_path.join("20231215120001_safe_migration.rb"), safe_migration_content)
+      described_class.ensure_migrations_table!
+    end
+
+    it "performs safety validation" do
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect(PgSqlTriggers::Migrator::SafetyValidator).to receive(:validate!).and_return(true)
+      described_class.run_up
+    end
+
+    it "allows unsafe migrations when ALLOW_UNSAFE_MIGRATIONS is set" do
+      ENV["ALLOW_UNSAFE_MIGRATIONS"] = "true"
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect { described_class.run_up }.not_to raise_error
+      ENV.delete("ALLOW_UNSAFE_MIGRATIONS")
+    end
+
+    it "allows unsafe migrations when PgSqlTriggers.allow_unsafe_migrations is true" do
+      allow(PgSqlTriggers).to receive(:allow_unsafe_migrations).and_return(true)
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect { described_class.run_up }.not_to raise_error
+    end
+  end
+
+  describe ".run_migration with pre-apply comparison" do
+    let(:migration_content) do
+      <<~RUBY
+        class TestMigration < PgSqlTriggers::Migration
+          def up
+            execute "CREATE OR REPLACE FUNCTION test_func() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;"
+          end
+        end
+      RUBY
+    end
+
+    before do
+      File.write(migrations_path.join("20231215120001_test_migration.rb"), migration_content)
+      described_class.ensure_migrations_table!
+    end
+
+    it "performs pre-apply comparison" do
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect(PgSqlTriggers::Migrator::PreApplyComparator).to receive(:compare).and_return({
+        has_differences: false,
+        functions: [],
+        triggers: []
+      })
+      described_class.run_up
+    end
+
+    it "logs differences when found" do
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      diff_result = {
+        has_differences: true,
+        functions: [{ function_name: "test_func", status: :new }],
+        triggers: []
+      }
+      allow(PgSqlTriggers::Migrator::PreApplyComparator).to receive(:compare).and_return(diff_result)
+      allow(Rails.logger).to receive(:warn)
+      expect(Rails.logger).to receive(:warn).with(/Pre-apply comparison/)
+      described_class.run_up
+    end
+  end
+
+  describe ".run_migration error handling" do
+    context "with LoadError" do
+      let(:invalid_migration_content) do
+        <<~RUBY
+          class InvalidMigration < PgSqlTriggers::Migration
+            def up
+              require "nonexistent_file"
+            end
+        end
+        RUBY
+      end
+
+      before do
+        File.write(migrations_path.join("20231215120001_invalid_migration.rb"), invalid_migration_content)
+        described_class.ensure_migrations_table!
+      end
+
+      it "raises error with LoadError message" do
+        allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+        expect do
+          described_class.run_up
+        end.to raise_error(StandardError, /Error loading trigger migration/)
+      end
+    end
+
+    context "with migration file that doesn't define class" do
+      let(:no_class_content) do
+        <<~RUBY
+          # This file doesn't define a class
+          puts "hello"
+        RUBY
+      end
+
+      before do
+        File.write(migrations_path.join("20231215120001_no_class.rb"), no_class_content)
+        described_class.ensure_migrations_table!
+      end
+
+      it "raises error when class not found" do
+        allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+        expect do
+          described_class.run_up
+        end.to raise_error(StandardError, /Error running trigger migration/)
+      end
+    end
+  end
+
+  describe ".migrations with edge cases" do
+    it "handles migration files without underscore separator" do
+      migration_content = <<~RUBY
+        class TestMigration < PgSqlTriggers::Migration
+          def up; end
+          def down; end
+        end
+      RUBY
+      File.write(migrations_path.join("20231215120001.rb"), migration_content)
+      migrations = described_class.migrations
+      expect(migrations.count).to eq(1)
+      expect(migrations.first.name).to eq("")
+    end
+
+    it "handles migration files with only version number" do
+      migration_content = <<~RUBY
+        class TestMigration < PgSqlTriggers::Migration
+          def up; end
+          def down; end
+        end
+      RUBY
+      File.write(migrations_path.join("12345.rb"), migration_content)
+      migrations = described_class.migrations
+      expect(migrations.count).to eq(1)
+      expect(migrations.first.version).to eq(12345)
+    end
   end
 end

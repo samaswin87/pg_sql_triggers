@@ -2,6 +2,7 @@
 
 begin
   PgSqlTriggers::Engine.routes.draw do
+    mount PgSqlTriggers::Engine => "/pg_sql_triggers"
     root to: "dashboard#index"
     get "dashboard", to: "dashboard#index", as: "dashboard"
 

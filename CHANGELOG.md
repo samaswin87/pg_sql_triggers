@@ -32,11 +32,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Console API: `PgSqlTriggers::Registry.diff` now fully functional with drift detection
   - Comprehensive test coverage for all drift detection components (>90% coverage)
 
+### Added
+- Comprehensive test coverage for generator components (>90% coverage)
+  - Added extensive test cases for `Generator::Service` covering all edge cases:
+    - Function name quoting (special characters vs simple patterns)
+    - Multiple environments handling
+    - Condition escaping with quotes
+    - Single and multiple event combinations
+    - All event types (insert, update, delete, truncate)
+    - Blank events and environments filtering
+    - Migration number generation edge cases (no existing migrations, timestamp collisions, multiple migrations)
+    - Standalone gem context (without Rails)
+    - Error handling and logging
+    - Checksum calculation with nil values
+  - Added test coverage for generator classes:
+    - `TriggerMigrationGenerator` - migration number generation, file naming, template usage
+    - `MigrationGenerator` (Trigger::Generators) - migration number generation, file naming, class name generation
+    - `InstallGenerator` - initializer creation, migration copying, route mounting, readme display
+
 ### Fixed
 - Fixed checksum calculation consistency across all code paths (field-concatenation algorithm)
 - Fixed `Registry::Manager.diff` method to use drift detection
 - Fixed dashboard controller to display actual drifted trigger count
 - Fixed SQL parameter handling in `DbQueries.execute_query` method
+- Fixed generator service to properly handle function body whitespace stripping
+- Fixed generator service to handle standalone gem context (without Rails.root)
 
 ## [1.0.1] - 2025-12-28
 

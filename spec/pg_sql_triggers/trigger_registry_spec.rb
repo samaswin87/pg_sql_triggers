@@ -307,5 +307,181 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
         expect(registry.reload.enabled).to be(false)
       end
     end
+
+    it "checks kill switch before disabling" do
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+        operation: :trigger_disable,
+        environment: Rails.env,
+        confirmation: nil,
+        actor: { type: "Console", id: "TriggerRegistry#disable!" }
+      )
+      registry.disable!
+    end
+
+    it "uses explicit confirmation when provided" do
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+        operation: :trigger_disable,
+        environment: Rails.env,
+        confirmation: "custom_confirmation",
+        actor: { type: "Console", id: "TriggerRegistry#disable!" }
+      )
+      registry.disable!(confirmation: "custom_confirmation")
+    end
+
+    it "handles errors when checking trigger existence" do
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_raise(StandardError.new("DB error"))
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect { registry.disable! }.not_to raise_error
+      expect(registry.reload.enabled).to be(false)
+    end
+
+    it "handles errors when disabling trigger in database" do
+      ActiveRecord::Base.connection.execute("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY)")
+      allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(ActiveRecord::StatementInvalid.new("Error"))
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      allow_any_instance_of(PgSqlTriggers::DatabaseIntrospection).to receive(:trigger_exists?).and_return(true)
+      expect { registry.disable! }.not_to raise_error
+      expect(registry.reload.enabled).to be(false)
+    end
+  end
+
+  describe "#drift_result" do
+    let(:registry) do
+      described_class.create!(
+        trigger_name: "test_trigger",
+        table_name: "users",
+        version: 1,
+        enabled: true,
+        checksum: "abc",
+        source: "dsl"
+      )
+    end
+
+    it "delegates to Drift::Detector.detect" do
+      expect(PgSqlTriggers::Drift::Detector).to receive(:detect).with("test_trigger").and_return({ state: :in_sync })
+      expect(registry.drift_result).to eq({ state: :in_sync })
+    end
+  end
+
+  describe "#drifted?" do
+    let(:registry) do
+      described_class.create!(
+        trigger_name: "test_trigger",
+        table_name: "users",
+        version: 1,
+        enabled: true,
+        checksum: "abc",
+        source: "dsl"
+      )
+    end
+
+    it "returns true when drift_state is drifted" do
+      allow(registry).to receive(:drift_state).and_return(PgSqlTriggers::DRIFT_STATE_DRIFTED)
+      expect(registry.drifted?).to be true
+    end
+
+    it "returns false when drift_state is not drifted" do
+      allow(registry).to receive(:drift_state).and_return(PgSqlTriggers::DRIFT_STATE_IN_SYNC)
+      expect(registry.drifted?).to be false
+    end
+  end
+
+  describe "#in_sync?" do
+    let(:registry) do
+      described_class.create!(
+        trigger_name: "test_trigger",
+        table_name: "users",
+        version: 1,
+        enabled: true,
+        checksum: "abc",
+        source: "dsl"
+      )
+    end
+
+    it "returns true when drift_state is in_sync" do
+      allow(registry).to receive(:drift_state).and_return(PgSqlTriggers::DRIFT_STATE_IN_SYNC)
+      expect(registry.in_sync?).to be true
+    end
+
+    it "returns false when drift_state is not in_sync" do
+      allow(registry).to receive(:drift_state).and_return(PgSqlTriggers::DRIFT_STATE_DRIFTED)
+      expect(registry.in_sync?).to be false
+    end
+  end
+
+  describe "#dropped?" do
+    let(:registry) do
+      described_class.create!(
+        trigger_name: "test_trigger",
+        table_name: "users",
+        version: 1,
+        enabled: true,
+        checksum: "abc",
+        source: "dsl"
+      )
+    end
+
+    it "returns true when drift_state is dropped" do
+      allow(registry).to receive(:drift_state).and_return(PgSqlTriggers::DRIFT_STATE_DROPPED)
+      expect(registry.dropped?).to be true
+    end
+
+    it "returns false when drift_state is not dropped" do
+      allow(registry).to receive(:drift_state).and_return(PgSqlTriggers::DRIFT_STATE_IN_SYNC)
+      expect(registry.dropped?).to be false
+    end
+  end
+
+  describe "#enable! edge cases" do
+    let(:registry) do
+      described_class.create!(
+        trigger_name: "test_trigger",
+        table_name: "users",
+        version: 1,
+        enabled: false,
+        checksum: "abc",
+        source: "dsl"
+      )
+    end
+
+    it "checks kill switch before enabling" do
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+        operation: :trigger_enable,
+        environment: Rails.env,
+        confirmation: nil,
+        actor: { type: "Console", id: "TriggerRegistry#enable!" }
+      )
+      registry.enable!
+    end
+
+    it "uses explicit confirmation when provided" do
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+        operation: :trigger_enable,
+        environment: Rails.env,
+        confirmation: "custom_confirmation",
+        actor: { type: "Console", id: "TriggerRegistry#enable!" }
+      )
+      registry.enable!(confirmation: "custom_confirmation")
+    end
+
+    it "handles errors when checking trigger existence" do
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_raise(StandardError.new("DB error"))
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      expect { registry.enable! }.not_to raise_error
+      expect(registry.reload.enabled).to be(true)
+    end
+
+    it "handles errors when enabling trigger in database" do
+      ActiveRecord::Base.connection.execute("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY)")
+      allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(ActiveRecord::StatementInvalid.new("Error"))
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      allow_any_instance_of(PgSqlTriggers::DatabaseIntrospection).to receive(:trigger_exists?).and_return(true)
+      expect { registry.enable! }.not_to raise_error
+      expect(registry.reload.enabled).to be(true)
+    end
   end
 end

@@ -139,11 +139,43 @@ module PgSqlTriggers
       # Create a temporary trigger registry object for validation
       temp_registry = PgSqlTriggers::TriggerRegistry.new(
         trigger_name: form.trigger_name,
-        function_body: form.function_body
+        table_name: form.table_name,
+        function_body: form.function_body,
+        condition: form.condition
       )
 
+      # Build definition JSON for condition validation
+      definition = {
+        name: form.trigger_name,
+        table_name: form.table_name,
+        function_name: form.function_name,
+        events: form.events.compact_blank,
+        version: form.version,
+        enabled: form.enabled,
+        environments: form.environments.compact_blank,
+        condition: form.condition,
+        function_body: form.function_body
+      }
+      temp_registry.definition = definition.to_json
+
       validator = PgSqlTriggers::Testing::SyntaxValidator.new(temp_registry)
-      validator.validate_function_syntax
+      
+      # Validate function syntax
+      function_result = validator.validate_function_syntax
+      return function_result unless function_result[:valid]
+
+      # Validate condition if present
+      if form.condition.present?
+        condition_result = validator.validate_condition
+        unless condition_result[:valid]
+          return {
+            valid: false,
+            error: "WHEN condition validation failed: #{condition_result[:error]}"
+          }
+        end
+      end
+
+      function_result
     rescue StandardError => e
       { valid: false, error: "Validation error: #{e.message}" }
     end

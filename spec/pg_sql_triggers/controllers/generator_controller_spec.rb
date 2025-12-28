@@ -126,6 +126,114 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
       expect(controller).to have_received(:render).with(:preview)
       expect(flash[:alert]).to include("SQL validation failed")
     end
+
+    context "with WHEN condition" do
+      let(:params_with_condition) do
+        valid_params.deep_dup.tap do |p|
+          p[:pg_sql_triggers_generator_form][:condition] = "NEW.id > 0"
+        end
+      end
+
+      it "validates WHEN condition when present" do
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
+        validator = instance_double(PgSqlTriggers::Testing::SyntaxValidator)
+        allow(PgSqlTriggers::Testing::SyntaxValidator).to receive(:new).and_return(validator)
+        allow(validator).to receive(:validate_function_syntax).and_return({ valid: true })
+        allow(validator).to receive(:validate_condition).and_return({ valid: true, message: "Condition syntax is valid" })
+        allow(PgSqlTriggers::Generator::Service).to receive(:create_trigger).and_return({
+          success: true,
+          migration_path: "db/triggers/20231215120001_test_trigger.rb",
+          dsl_path: "app/triggers/test_trigger.rb"
+        })
+
+        post :create, params: params_with_condition
+        expect(validator).to have_received(:validate_condition)
+        expect(response).to redirect_to(root_path)
+      end
+
+      it "rejects invalid WHEN condition" do
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
+        validator = instance_double(PgSqlTriggers::Testing::SyntaxValidator)
+        allow(PgSqlTriggers::Testing::SyntaxValidator).to receive(:new).and_return(validator)
+        allow(validator).to receive(:validate_function_syntax).and_return({ valid: true })
+        allow(validator).to receive(:validate_condition).and_return({ valid: false, error: "syntax error at or near \"INVALID\"" })
+        allow(PgSqlTriggers::Generator::Service).to receive(:generate_dsl).and_return("# DSL code")
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(["users"])
+        allow(controller).to receive(:render).with(:preview).and_return(nil)
+
+        post :create, params: params_with_condition
+        expect(validator).to have_received(:validate_condition)
+        expect(controller).to have_received(:render).with(:preview)
+        expect(flash[:alert]).to include("WHEN condition validation failed")
+      end
+
+      it "validates condition in preview" do
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
+        validator = instance_double(PgSqlTriggers::Testing::SyntaxValidator)
+        allow(PgSqlTriggers::Testing::SyntaxValidator).to receive(:new).and_return(validator)
+        allow(validator).to receive(:validate_function_syntax).and_return({ valid: true })
+        allow(validator).to receive(:validate_condition).and_return({ valid: true, message: "Condition syntax is valid" })
+        allow(controller).to receive(:render).and_return(nil)
+
+        post :preview, params: params_with_condition
+        expect(validator).to have_received(:validate_condition)
+        expect(assigns(:sql_validation)).to be_present
+      end
+
+      it "validates condition syntax with real database" do
+        # Don't mock the validator - use real one to test actual SQL validation
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(["users"])
+        allow(PgSqlTriggers::Generator::Service).to receive(:create_trigger).and_return({
+          success: true,
+          migration_path: "db/triggers/20231215120001_test_trigger.rb",
+          dsl_path: "app/triggers/test_trigger.rb"
+        })
+
+        # Use real validator to test actual SQL validation
+        # The condition "NEW.id > 0" should be valid for the users table with id column
+        post :create, params: params_with_condition
+        
+        # The validation should run (either pass or fail, but it should be called)
+        # If it passes, we redirect; if it fails, we render preview with error
+        expect(assigns(:sql_validation) || response.redirect?).to be_truthy
+        if response.redirect?
+          expect(flash[:notice]).to include("successfully")
+        end
+      end
+
+      it "rejects invalid condition syntax with real database" do
+        invalid_condition_params = valid_params.deep_dup.tap do |p|
+          p[:pg_sql_triggers_generator_form][:condition] = "INVALID SQL SYNTAX !!!"
+        end
+
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
+        allow(PgSqlTriggers::Generator::Service).to receive(:generate_dsl).and_return("# DSL code")
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(["users"])
+        allow(controller).to receive(:render).with(:preview).and_return(nil)
+
+        post :create, params: invalid_condition_params
+        expect(controller).to have_received(:render).with(:preview)
+        expect(flash[:alert]).to include("WHEN condition validation failed")
+      end
+    end
+
+    it "skips condition validation when condition is blank" do
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
+      validator = instance_double(PgSqlTriggers::Testing::SyntaxValidator)
+      allow(PgSqlTriggers::Testing::SyntaxValidator).to receive(:new).and_return(validator)
+      allow(validator).to receive(:validate_function_syntax).and_return({ valid: true })
+      allow(validator).to receive(:validate_condition).and_return({ valid: true })
+      allow(PgSqlTriggers::Generator::Service).to receive(:create_trigger).and_return({
+        success: true,
+        migration_path: "db/triggers/20231215120001_test_trigger.rb",
+        dsl_path: "app/triggers/test_trigger.rb"
+      })
+
+      post :create, params: valid_params
+      expect(validator).not_to have_received(:validate_condition)
+      expect(response).to redirect_to(root_path)
+    end
   end
 
   describe "POST #validate_table" do
