@@ -88,6 +88,9 @@ Rails:
 Rails/I18nLocaleTexts:
   Enabled: false
 
+Rails/StrongParametersExpect:
+  Enabled: false
+
 # RSpec
 RSpec/ExampleLength:
   Max: 10

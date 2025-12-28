@@ -102,10 +102,10 @@ module PgSqlTriggers
     private
 
     def generator_params
-      params.expect(
-        pg_sql_triggers_generator_form: [:trigger_name, :table_name, :function_name, :version,
-                                         :enabled, :condition, :generate_function_stub, :function_body,
-                                         { events: [], environments: [] }]
+      params.require(:pg_sql_triggers_generator_form).permit(
+        :trigger_name, :table_name, :function_name, :version,
+        :enabled, :condition, :generate_function_stub, :function_body,
+        events: [], environments: []
       )
     end
 
