@@ -96,16 +96,16 @@ Rails must always know:
 
 ---
 
-### D. Safe Apply & Deploy ⚠️ (partially implemented via migrations)
+### D. Safe Apply & Deploy ✅ (fully implemented via migrations)
 
 Applying triggers must:
 - ✅ Run in a transaction (migrations run in transactions)
-- ❌ Diff expected vs actual (not implemented - no pre-apply comparison)
-- ⚠️ Never blindly DROP + CREATE (migrations handle this, but no explicit safety validation)
+- ✅ Diff expected vs actual (fully implemented - pre-apply comparison before migration execution)
+- ✅ Never blindly DROP + CREATE (fully implemented - safety validator blocks unsafe DROP + CREATE patterns)
 - ✅ Support rollback on failure (migration rollback exists)
 - ✅ Update registry atomically (registry updated during migration execution)
 
-**Status:** Core functionality works through migration system, but lacks explicit "safe apply" method with pre-flight checks and diff validation.
+**Status:** Core functionality fully implemented through migration system. Pre-apply comparison shows diff between expected (from migration) and actual (from database) state before applying migrations. Safety validator explicitly blocks unsafe DROP + CREATE operations, preventing migrations from blindly dropping and recreating existing database objects without validation.
 
 ---
 
@@ -345,13 +345,13 @@ This gem must be described as:
 - ✅ Trigger Declaration DSL (Section 3.A)
 - ✅ Trigger Generation (Section 3.B)
 - ✅ Trigger Registry (Section 3.C) - with consistent field-concatenation checksum algorithm
+- ✅ Safe Apply & Deploy (Section 3.D) - fully implemented with safety validation
 - ✅ Drift Detection (Section 3.E) - fully implemented with all 6 drift states
 - ✅ Rails Console Introspection (Section 3.F) - including working diff method
 - ✅ Kill Switch for Production Safety (Section 6) - fully implemented
 - ✅ Basic UI Dashboard (Section 8) - migration management, tables view, generator
 
 **Partially Implemented:**
-- ⚠️ Safe Apply & Deploy (Section 3.D) - works via migrations but lacks explicit safe apply method with pre-flight checks
 - ⚠️ UI (Section 8) - dashboard and tables view exist, but no dedicated trigger detail page, no enable/disable buttons
 - ⚠️ Permissions Model (Section 5) - structure exists but not enforced
 
@@ -482,23 +482,27 @@ This gem must be described as:
 
 **Impact:** Cannot safely drop or re-execute triggers. Operational workflows blocked.
 
-#### 3. Safe Apply & Deploy (Section 3.D) - IMPORTANT
+#### 3. Safe Apply & Deploy (Section 3.D) - ✅ FULLY IMPLEMENTED
 **Priority:** MEDIUM-HIGH - Deployment safety enhancement
 
-**Status:** Partially implemented via migrations, but lacks explicit safe apply method
+**Status:** Fully implemented - pre-apply comparison and safety validation added
 
 **What Works:**
 - ✅ Migrations run in transactions
 - ✅ Migration rollback supported
 - ✅ Registry updated during migrations
+- ✅ Pre-apply comparison (diff expected vs actual) before migration execution
+- ✅ Diff reporting shows what will change before applying
+- ✅ Safety validator blocks unsafe DROP + CREATE operations
+- ✅ Explicit validation prevents migrations from blindly dropping and recreating existing objects
 
-**Missing:**
-- ❌ Explicit "safe apply" method with pre-flight validation
-- ❌ Diff expected vs actual state before applying (prevent accidental overwrites)
-- ❌ Explicit safety checks (never blindly DROP + CREATE without validation)
-- ❌ Pre-apply registry state comparison
-
-**Impact:** Migrations work but lack safety validation before applying. Risk of accidental overwrites.
+**Implementation Details:**
+- `Migrator::SafetyValidator` class detects unsafe DROP + CREATE patterns in migrations
+- Validator checks if migrations would drop existing database objects and recreate them
+- Blocks migration execution if unsafe patterns detected (unless explicitly allowed)
+- Configuration option `allow_unsafe_migrations` (default: false) for global override
+- Environment variable `ALLOW_UNSAFE_MIGRATIONS=true` for per-migration override
+- Provides clear error messages explaining unsafe operations and how to proceed
 
 ---
 
@@ -609,7 +613,6 @@ This gem must be described as:
 - ⚠️ **Dashboard** - `installed_at` exists in registry table but not displayed in UI
 - ⚠️ **Trigger Detail Page** - No dedicated route/page, info shown in tables/show view only
 - ⚠️ **Enable/Disable UI** - Console methods exist with kill switch protection, but no UI buttons
-- ⚠️ **Safe Apply** - Works through migrations but lacks explicit safe apply method with pre-flight checks
 
 ---
 

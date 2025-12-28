@@ -58,4 +58,12 @@ PgSqlTriggers.configure do |config|
   # Add additional tables you want to exclude:
   # config.excluded_tables = %w[audit_logs temporary_data]
   config.excluded_tables = []
+
+  # ========== Migration Safety Configuration ==========
+  # Prevent unsafe DROP + CREATE operations in migrations
+  # When false (default), migrations with DROP + CREATE patterns will be blocked
+  # Set to true to allow unsafe operations (not recommended)
+  # You can also override per-migration with ALLOW_UNSAFE_MIGRATIONS=true environment variable
+  # Default: false (recommended for safety)
+  config.allow_unsafe_migrations = false
 end

@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Safety validation for trigger migrations (prevents unsafe DROP + CREATE operations)
+  - `Migrator::SafetyValidator` class that detects unsafe DROP + CREATE patterns in migrations
+  - Blocks migrations that would drop existing database objects (triggers/functions) and recreate them without validation
+  - Only flags as unsafe if the object actually exists in the database
+  - Configuration option `allow_unsafe_migrations` (default: false) for global override
+  - Environment variable `ALLOW_UNSAFE_MIGRATIONS=true` for per-migration override
+  - Provides clear error messages explaining unsafe operations and how to proceed if override is needed
+  - New error class `PgSqlTriggers::UnsafeMigrationError` for safety validation failures
+- Pre-apply comparison for trigger migrations (diff expected vs actual)
+  - `Migrator::PreApplyComparator` class that extracts expected SQL from migrations and compares with database state
+  - `Migrator::PreApplyDiffReporter` class for formatting comparison results into human-readable diff reports
+  - Automatic pre-apply comparison before executing migrations to show what will change
+  - Comparison reports show new objects (will be created), modified objects (will be overwritten), and unchanged objects
+  - Detailed diff output for functions and triggers including expected vs actual SQL
+  - Summary output in verbose mode or when called from console
+  - Non-blocking: shows differences but doesn't prevent migration execution (warns only)
 - Complete drift detection system implementation
   - `Drift::Detector` class with all 6 drift states (IN_SYNC, DRIFTED, DISABLED, DROPPED, UNKNOWN, MANUAL_OVERRIDE)
   - `Drift::Reporter` class for formatting drift reports and summaries

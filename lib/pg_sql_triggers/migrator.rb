@@ -3,6 +3,9 @@
 require "ostruct"
 require "active_support/core_ext/string/inflections"
 require "active_support/core_ext/module/delegation"
+require_relative "migrator/pre_apply_comparator"
+require_relative "migrator/pre_apply_diff_reporter"
+require_relative "migrator/safety_validator"
 
 module PgSqlTriggers
   class Migrator
@@ -186,7 +189,50 @@ module PgSqlTriggers
           end
         end
 
+        # Perform safety validation (prevent unsafe DROP + CREATE operations)
+        validation_instance = migration_class.new
+        begin
+          allow_unsafe = ENV["ALLOW_UNSAFE_MIGRATIONS"] == "true" ||
+                        (defined?(PgSqlTriggers) && PgSqlTriggers.allow_unsafe_migrations == true)
+          
+          SafetyValidator.validate!(validation_instance, direction: direction, allow_unsafe: allow_unsafe)
+        rescue SafetyValidator::UnsafeOperationError => e
+          # Safety validation failed - block the migration
+          error_msg = "\n#{e.message}\n\n"
+          Rails.logger.error(error_msg) if defined?(Rails.logger)
+          puts error_msg if ENV["VERBOSE"] != "false" || defined?(Rails::Console)
+          raise StandardError, "Migration blocked due to unsafe DROP + CREATE operations. " \
+                               "Review the errors above and set ALLOW_UNSAFE_MIGRATIONS=true if you must proceed."
+        rescue StandardError => e
+          # Don't fail the migration if validation fails for other reasons - just log it
+          Rails.logger.warn("Safety validation failed for migration #{migration.name}: #{e.message}") if defined?(Rails.logger)
+        end
+
+        # Perform pre-apply comparison (diff expected vs actual)
+        # Create a separate instance for comparison to avoid side effects
+        comparison_instance = migration_class.new
+        begin
+          diff_result = PreApplyComparator.compare(comparison_instance, direction: direction)
+          
+          # Log the comparison result
+          if diff_result[:has_differences]
+            diff_report = PreApplyDiffReporter.format(diff_result, migration_name: migration.name)
+            Rails.logger.warn("Pre-apply comparison for migration #{migration.name}:\n#{diff_report}") if defined?(Rails.logger)
+            
+            # In verbose mode or when called from console, print the diff
+            if ENV["VERBOSE"] != "false" || defined?(Rails::Console)
+              puts "\n#{PreApplyDiffReporter.format_summary(diff_result)}\n"
+            end
+          else
+            Rails.logger.info("Pre-apply comparison: No differences detected for migration #{migration.name}") if defined?(Rails.logger)
+          end
+        rescue StandardError => e
+          # Don't fail the migration if comparison fails - just log it
+          Rails.logger.warn("Pre-apply comparison failed for migration #{migration.name}: #{e.message}") if defined?(Rails.logger)
+        end
+
         ActiveRecord::Base.transaction do
+          # Create a fresh instance for actual execution
           migration_instance = migration_class.new
           migration_instance.public_send(direction)
 
