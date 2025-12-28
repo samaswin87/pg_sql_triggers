@@ -36,7 +36,7 @@ Gem::Specification.new do |spec|
 
   # Runtime dependencies
   spec.add_dependency "pg", ">= 1.0"
-  spec.add_dependency "rails", ">= 6.0"
+  spec.add_dependency "rails", ">= 6.1"
 
   # Development dependencies
   spec.add_development_dependency "database_cleaner-active_record", "~> 2.0"

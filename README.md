@@ -24,7 +24,7 @@ Rails teams use PostgreSQL triggers for data integrity, performance, and billing
 ## Requirements
 
 - **Ruby 3.0+**
-- **Rails 6.0+**
+- **Rails 6.1+**
 - **PostgreSQL** (any supported version)
 
 ## Quick Start
