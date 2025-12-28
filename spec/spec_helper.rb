@@ -10,6 +10,8 @@ end
 ENV["RAILS_ENV"] ||= "test"
 
 # Set up minimal Rails environment for testing
+# Rails 8 requires the logger gem to be loaded first
+require "logger"
 require "rails"
 require "active_record"
 require "action_controller"
