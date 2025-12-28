@@ -138,13 +138,12 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
         allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
         validator = instance_double(PgSqlTriggers::Testing::SyntaxValidator)
         allow(PgSqlTriggers::Testing::SyntaxValidator).to receive(:new).and_return(validator)
-        allow(validator).to receive(:validate_function_syntax).and_return({ valid: true })
-        allow(validator).to receive(:validate_condition).and_return({ valid: true, message: "Condition syntax is valid" })
+        allow(validator).to receive_messages(validate_function_syntax: { valid: true }, validate_condition: { valid: true, message: "Condition syntax is valid" })
         allow(PgSqlTriggers::Generator::Service).to receive(:create_trigger).and_return({
-          success: true,
-          migration_path: "db/triggers/20231215120001_test_trigger.rb",
-          dsl_path: "app/triggers/test_trigger.rb"
-        })
+                                                                                          success: true,
+                                                                                          migration_path: "db/triggers/20231215120001_test_trigger.rb",
+                                                                                          dsl_path: "app/triggers/test_trigger.rb"
+                                                                                        })
 
         post :create, params: params_with_condition
         expect(validator).to have_received(:validate_condition)
@@ -155,8 +154,7 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
         allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
         validator = instance_double(PgSqlTriggers::Testing::SyntaxValidator)
         allow(PgSqlTriggers::Testing::SyntaxValidator).to receive(:new).and_return(validator)
-        allow(validator).to receive(:validate_function_syntax).and_return({ valid: true })
-        allow(validator).to receive(:validate_condition).and_return({ valid: false, error: "syntax error at or near \"INVALID\"" })
+        allow(validator).to receive_messages(validate_function_syntax: { valid: true }, validate_condition: { valid: false, error: "syntax error at or near \"INVALID\"" })
         allow(PgSqlTriggers::Generator::Service).to receive(:generate_dsl).and_return("# DSL code")
         allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(["users"])
         allow(controller).to receive(:render).with(:preview).and_return(nil)
@@ -171,8 +169,7 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
         allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
         validator = instance_double(PgSqlTriggers::Testing::SyntaxValidator)
         allow(PgSqlTriggers::Testing::SyntaxValidator).to receive(:new).and_return(validator)
-        allow(validator).to receive(:validate_function_syntax).and_return({ valid: true })
-        allow(validator).to receive(:validate_condition).and_return({ valid: true, message: "Condition syntax is valid" })
+        allow(validator).to receive_messages(validate_function_syntax: { valid: true }, validate_condition: { valid: true, message: "Condition syntax is valid" })
         allow(controller).to receive(:render).and_return(nil)
 
         post :preview, params: params_with_condition
@@ -185,21 +182,19 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
         allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
         allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(["users"])
         allow(PgSqlTriggers::Generator::Service).to receive(:create_trigger).and_return({
-          success: true,
-          migration_path: "db/triggers/20231215120001_test_trigger.rb",
-          dsl_path: "app/triggers/test_trigger.rb"
-        })
+                                                                                          success: true,
+                                                                                          migration_path: "db/triggers/20231215120001_test_trigger.rb",
+                                                                                          dsl_path: "app/triggers/test_trigger.rb"
+                                                                                        })
 
         # Use real validator to test actual SQL validation
         # The condition "NEW.id > 0" should be valid for the users table with id column
         post :create, params: params_with_condition
-        
+
         # The validation should run (either pass or fail, but it should be called)
         # If it passes, we redirect; if it fails, we render preview with error
         expect(assigns(:sql_validation) || response.redirect?).to be_truthy
-        if response.redirect?
-          expect(flash[:notice]).to include("successfully")
-        end
+        expect(flash[:notice]).to include("successfully") if response.redirect?
       end
 
       it "rejects invalid condition syntax with real database" do
@@ -222,13 +217,12 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
       allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
       validator = instance_double(PgSqlTriggers::Testing::SyntaxValidator)
       allow(PgSqlTriggers::Testing::SyntaxValidator).to receive(:new).and_return(validator)
-      allow(validator).to receive(:validate_function_syntax).and_return({ valid: true })
-      allow(validator).to receive(:validate_condition).and_return({ valid: true })
+      allow(validator).to receive_messages(validate_function_syntax: { valid: true }, validate_condition: { valid: true })
       allow(PgSqlTriggers::Generator::Service).to receive(:create_trigger).and_return({
-        success: true,
-        migration_path: "db/triggers/20231215120001_test_trigger.rb",
-        dsl_path: "app/triggers/test_trigger.rb"
-      })
+                                                                                        success: true,
+                                                                                        migration_path: "db/triggers/20231215120001_test_trigger.rb",
+                                                                                        dsl_path: "app/triggers/test_trigger.rb"
+                                                                                      })
 
       post :create, params: valid_params
       expect(validator).not_to have_received(:validate_condition)

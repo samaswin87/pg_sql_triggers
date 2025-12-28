@@ -31,7 +31,7 @@ RSpec.describe PgSqlTriggers::Generators::TriggerMigrationGenerator do
       File.write(triggers_dir.join("20231215120000_existing.rb"), "# existing migration")
 
       number = described_class.next_migration_number(nil)
-      expect(number).to be > 20231215120000
+      expect(number).to be > 20_231_215_120_000
     end
 
     it "handles multiple existing migrations" do
@@ -41,7 +41,7 @@ RSpec.describe PgSqlTriggers::Generators::TriggerMigrationGenerator do
       File.write(triggers_dir.join("20231215120005_third.rb"), "# third")
 
       number = described_class.next_migration_number(nil)
-      expect(number).to be > 20231215120005
+      expect(number).to be > 20_231_215_120_005
     end
 
     it "handles timestamp collision by incrementing" do
@@ -75,8 +75,7 @@ RSpec.describe PgSqlTriggers::Generators::TriggerMigrationGenerator do
 
     before do
       # Mock the destination_root for the generator
-      allow(generator).to receive(:destination_root).and_return(rails_root.to_s)
-      allow(generator).to receive(:migration_template).and_return(true)
+      allow(generator).to receive_messages(destination_root: rails_root.to_s, migration_template: true)
     end
 
     it "calls migration_template with correct arguments" do
@@ -89,8 +88,7 @@ RSpec.describe PgSqlTriggers::Generators::TriggerMigrationGenerator do
 
     it "uses underscore format for trigger name in file_name" do
       generator = described_class.new(["MyComplexTrigger"])
-      allow(generator).to receive(:destination_root).and_return(rails_root.to_s)
-      allow(generator).to receive(:migration_template).and_return(true)
+      allow(generator).to receive_messages(destination_root: rails_root.to_s, migration_template: true)
       generator.create_trigger_migration
       expect(generator.send(:file_name)).to include("my_complex_trigger")
     end
@@ -99,7 +97,7 @@ RSpec.describe PgSqlTriggers::Generators::TriggerMigrationGenerator do
   describe "#file_name" do
     it "combines migration number with underscored name" do
       generator = described_class.new(["TestTrigger"])
-      allow(generator).to receive(:migration_number).and_return(1234567890)
+      allow(generator).to receive(:migration_number).and_return(1_234_567_890)
       expect(generator.send(:file_name)).to eq("1234567890_test_trigger")
     end
   end
@@ -112,4 +110,3 @@ RSpec.describe PgSqlTriggers::Generators::TriggerMigrationGenerator do
     end
   end
 end
-

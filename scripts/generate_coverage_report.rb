@@ -5,12 +5,12 @@ require "json"
 require "pathname"
 
 def calculate_file_coverage(lines)
-  return 0.0 if lines.nil? || lines.empty?
+  return 0.0 if lines.blank?
 
-  relevant_lines = lines.reject(&:nil?)
+  relevant_lines = lines.compact
   return 0.0 if relevant_lines.empty?
 
-  covered = relevant_lines.count { |line| line && line > 0 }
+  covered = relevant_lines.count { |line| line&.positive? }
   total = relevant_lines.count
 
   (covered.to_f / total * 100).round(2)
@@ -20,7 +20,7 @@ def extract_file_path(full_path)
   # Remove workspace root and get relative path
   workspace_root = Pathname.new(__dir__).parent.realpath
   file_path = Pathname.new(full_path)
-  
+
   if file_path.to_s.start_with?(workspace_root.to_s)
     file_path.relative_path_from(workspace_root).to_s
   else
@@ -40,7 +40,7 @@ def parse_coverage_data
   end
 
   resultset_data = JSON.parse(File.read(resultset_file))
-  last_run_data = last_run_file.exist? ? JSON.parse(File.read(last_run_file)) : {}
+  last_run_file.exist? ? JSON.parse(File.read(last_run_file)) : {}
 
   # Get the first (and usually only) test suite result
   test_suite_key = resultset_data.keys.first
@@ -59,10 +59,10 @@ def parse_coverage_data
 
     lines = file_data["lines"]
     coverage_percentage = calculate_file_coverage(lines)
-    
+
     # Count relevant lines (non-nil lines)
-    relevant_lines = lines.reject(&:nil?)
-    covered_lines = relevant_lines.count { |line| line && line > 0 }
+    relevant_lines = lines.compact
+    covered_lines = relevant_lines.count { |line| line&.positive? }
 
     file_coverage[relative_path] = {
       percentage: coverage_percentage,
@@ -75,7 +75,7 @@ def parse_coverage_data
     total_covered += covered_lines
   end
 
-  total_coverage = total_lines > 0 ? (total_covered.to_f / total_lines * 100).round(2) : 0.0
+  total_coverage = total_lines.positive? ? (total_covered.to_f / total_lines * 100).round(2) : 0.0
 
   {
     file_coverage: file_coverage.sort_by { |_k, v| -v[:percentage] },
@@ -95,8 +95,13 @@ def generate_markdown(coverage_info)
   markdown += "|------|----------|---------------|--------------|-------------|\n"
 
   coverage_info[:file_coverage].each do |file_path, data|
-    status_icon = data[:percentage] >= 90 ? "✅" : data[:percentage] >= 70 ? "⚠️" : "❌"
-    markdown += "| `#{file_path}` | #{data[:percentage]}% #{status_icon} | #{data[:covered_lines]} | #{data[:missed_lines]} | #{data[:total_lines]} |\n"
+    status_icon = if data[:percentage] >= 90
+                    "✅"
+                  else
+                    data[:percentage] >= 70 ? "⚠️" : "❌"
+                  end
+    markdown += "| `#{file_path}` | #{data[:percentage]}% #{status_icon} | " \
+                "#{data[:covered_lines]} | #{data[:missed_lines]} | #{data[:total_lines]} |\n"
   end
 
   markdown += "\n---\n\n"
@@ -110,15 +115,14 @@ end
 begin
   coverage_info = parse_coverage_data
   markdown_content = generate_markdown(coverage_info)
-  
+
   output_file = Pathname.new(__dir__).parent.join("COVERAGE.md")
   File.write(output_file, markdown_content)
-  
+
   puts "Coverage report generated: #{output_file}"
   puts "Total Coverage: #{coverage_info[:total_coverage]}%"
-rescue => e
+rescue StandardError => e
   puts "Error generating coverage report: #{e.message}"
   puts e.backtrace.first(5).join("\n")
   exit 1
 end
-

@@ -213,7 +213,7 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
     end
 
     it "delegates to Drift.detect" do
-      expect(PgSqlTriggers::Drift).to receive(:detect).with("test_trigger").and_return({ state: :in_sync })
+      allow(PgSqlTriggers::Drift).to receive(:detect).with("test_trigger").and_return({ state: :in_sync })
       expect(registry.drift_state).to eq(:in_sync)
     end
   end
@@ -341,7 +341,9 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
       ActiveRecord::Base.connection.execute("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY)")
       allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(ActiveRecord::StatementInvalid.new("Error"))
       allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      # rubocop:disable RSpec/AnyInstance
       allow_any_instance_of(PgSqlTriggers::DatabaseIntrospection).to receive(:trigger_exists?).and_return(true)
+      # rubocop:enable RSpec/AnyInstance
       expect { registry.disable! }.not_to raise_error
       expect(registry.reload.enabled).to be(false)
     end
@@ -360,7 +362,7 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
     end
 
     it "delegates to Drift::Detector.detect" do
-      expect(PgSqlTriggers::Drift::Detector).to receive(:detect).with("test_trigger").and_return({ state: :in_sync })
+      allow(PgSqlTriggers::Drift::Detector).to receive(:detect).with("test_trigger").and_return({ state: :in_sync })
       expect(registry.drift_result).to eq({ state: :in_sync })
     end
   end
@@ -479,7 +481,9 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
       ActiveRecord::Base.connection.execute("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY)")
       allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(ActiveRecord::StatementInvalid.new("Error"))
       allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      # rubocop:disable RSpec/AnyInstance
       allow_any_instance_of(PgSqlTriggers::DatabaseIntrospection).to receive(:trigger_exists?).and_return(true)
+      # rubocop:enable RSpec/AnyInstance
       expect { registry.enable! }.not_to raise_error
       expect(registry.reload.enabled).to be(true)
     end

@@ -81,7 +81,7 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyComparator do
       ]
       state = described_class.send(:parse_sql_to_state, sql)
       expect(state[:drops].count).to eq(2)
-      expect(state[:drops].map { |d| d[:type] }).to contain_exactly(:trigger, :function)
+      expect(state[:drops].pluck(:type)).to contain_exactly(:trigger, :function)
     end
 
     it "handles SQL that doesn't match any pattern" do
@@ -369,7 +369,7 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyComparator do
         triggers: [{
           trigger_name: "modified_trigger",
           table_name: "users",
-          events: ["INSERT", "UPDATE"],
+          events: %w[INSERT UPDATE],
           condition: nil,
           function_name: "test_func",
           full_sql: "CREATE TRIGGER modified_trigger BEFORE INSERT OR UPDATE ON users..."
@@ -442,12 +442,12 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyComparator do
       trigger = {
         trigger_name: "test_trigger",
         table_name: "users",
-        events: ["INSERT", "UPDATE"],
+        events: %w[INSERT UPDATE],
         condition: "NEW.id > 0",
         function_name: "test_func"
       }
       normalized = described_class.send(:normalize_trigger_definition, trigger)
-      expect(normalized[:events]).to eq(["INSERT", "UPDATE"].sort)
+      expect(normalized[:events]).to eq(%w[INSERT UPDATE].sort)
     end
   end
 
@@ -534,7 +534,7 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyComparator do
     end
 
     it "finds event differences" do
-      expected = { table_name: "users", events: ["INSERT", "UPDATE"], condition: nil, function_name: "test_func" }
+      expected = { table_name: "users", events: %w[INSERT UPDATE], condition: nil, function_name: "test_func" }
       actual_db = {
         trigger_name: "test_trigger",
         table_name: "users",
@@ -618,5 +618,3 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyComparator do
     end
   end
 end
-
-

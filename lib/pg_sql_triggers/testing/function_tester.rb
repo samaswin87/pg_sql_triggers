@@ -8,13 +8,35 @@ module PgSqlTriggers
       end
 
       # Test ONLY the function, not the trigger
-      def test_function_only(test_context: {})
+      def test_function_only(_test_context: {})
         results = {
           function_created: false,
           function_executed: false,
           errors: [],
           output: []
         }
+
+        # Check if function_body is present
+        if @trigger.function_body.blank?
+          results[:success] = false
+          results[:errors] << "Function body is missing"
+          return results
+        end
+
+        # Extract function name to verify it matches
+        function_name_from_body = nil
+        if @trigger.function_body.present?
+          pattern = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/i
+          match = @trigger.function_body.match(pattern)
+          function_name_from_body = match[1] if match
+        end
+
+        # If function_body doesn't contain a valid function definition, fail early
+        unless function_name_from_body
+          results[:success] = false
+          results[:errors] << "Function body does not contain a valid CREATE FUNCTION statement"
+          return results
+        end
 
         ActiveRecord::Base.transaction do
           # Create function in transaction
@@ -24,7 +46,7 @@ module PgSqlTriggers
 
           # Try to invoke function directly (if test context provided)
           # Note: Empty hash {} is not "present" in Rails, so check if it's not nil
-          if !test_context.nil? && results[:function_created]
+          if results[:function_created]
             # This would require custom invocation logic
             # For now, just verify it was created - if function was successfully created,
             # we can assume it exists and is executable within the transaction
@@ -68,12 +90,14 @@ module PgSqlTriggers
 
               begin
                 result = ActiveRecord::Base.connection.execute(check_sql).first
-                results[:output] << if result && result["count"].to_i.positive?
+                results[:function_executed] = result && result["count"].to_i.positive?
+                results[:output] << if results[:function_executed]
                                       "✓ Function exists and is callable"
                                     else
                                       "✓ Function created (verified via successful creation)"
                                     end
-              rescue StandardError
+              rescue StandardError => e
+                results[:errors] << "Error during function verification: #{e.message}"
                 results[:output] << "✓ Function created (verified via successful creation)"
               end
             else
@@ -82,7 +106,7 @@ module PgSqlTriggers
           end
 
           results[:success] = true
-        rescue ActiveRecord::StatementInvalid => e
+        rescue ActiveRecord::StatementInvalid, StandardError => e
           results[:success] = false
           results[:errors] << e.message
         ensure
@@ -100,7 +124,8 @@ module PgSqlTriggers
         rescue StandardError
           {}
         end
-        function_name = definition["function_name"]
+        function_name = definition["function_name"] || definition["name"] ||
+                        definition[:function_name] || definition[:name]
         return false if function_name.blank?
 
         sanitized_name = ActiveRecord::Base.connection.quote_string(function_name)

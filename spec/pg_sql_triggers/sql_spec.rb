@@ -5,7 +5,7 @@ require "spec_helper"
 RSpec.describe PgSqlTriggers::SQL do
   describe ".kill_switch_active?" do
     it "delegates to KillSwitch.active?" do
-      expect(PgSqlTriggers::SQL::KillSwitch).to receive(:active?).and_return(true)
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:active?).and_return(true)
       result = described_class.kill_switch_active?
       expect(result).to be true
     end
@@ -24,4 +24,3 @@ RSpec.describe PgSqlTriggers::SQL do
     end
   end
 end
-

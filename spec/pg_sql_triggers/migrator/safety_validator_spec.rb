@@ -377,5 +377,3 @@ RSpec.describe PgSqlTriggers::Migrator::SafetyValidator do
     end
   end
 end
-
-

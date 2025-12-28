@@ -28,7 +28,7 @@ RSpec.describe PgSqlTriggers::Generators::InstallGenerator do
 
       number = described_class.next_migration_number(migrate_dir.to_s)
       expect(number).to be_a(String)
-      expect(number.to_i).to be > 20231215120000
+      expect(number.to_i).to be > 20_231_215_120_000
     end
 
     it "handles empty migration directory" do
@@ -45,8 +45,7 @@ RSpec.describe PgSqlTriggers::Generators::InstallGenerator do
     let(:generator) { described_class.new }
 
     before do
-      allow(generator).to receive(:destination_root).and_return(rails_root.to_s)
-      allow(generator).to receive(:template).and_return(true)
+      allow(generator).to receive_messages(destination_root: rails_root.to_s, template: true)
     end
 
     it "calls template with correct arguments" do
@@ -62,8 +61,7 @@ RSpec.describe PgSqlTriggers::Generators::InstallGenerator do
     let(:generator) { described_class.new }
 
     before do
-      allow(generator).to receive(:destination_root).and_return(rails_root.to_s)
-      allow(generator).to receive(:migration_template).and_return(true)
+      allow(generator).to receive_messages(destination_root: rails_root.to_s, migration_template: true)
     end
 
     it "calls migration_template with correct arguments" do
@@ -92,18 +90,15 @@ RSpec.describe PgSqlTriggers::Generators::InstallGenerator do
     let(:generator) { described_class.new }
 
     it "shows readme when behavior is invoke" do
-      allow(generator).to receive(:behavior).and_return(:invoke)
-      allow(generator).to receive(:readme).and_return(nil)
+      allow(generator).to receive_messages(behavior: :invoke, readme: nil)
       generator.show_readme
       expect(generator).to have_received(:readme).with("README")
     end
 
     it "does not show readme when behavior is revoke" do
-      allow(generator).to receive(:behavior).and_return(:revoke)
-      allow(generator).to receive(:readme).and_return(nil)
+      allow(generator).to receive_messages(behavior: :revoke, readme: nil)
       generator.show_readme
       expect(generator).not_to have_received(:readme)
     end
   end
 end
-

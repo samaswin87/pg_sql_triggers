@@ -240,7 +240,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
     end
 
     it "calls next_migration_number to generate version" do
-      allow(described_class).to receive(:next_migration_number).and_return(1234567890)
+      allow(described_class).to receive(:next_migration_number).and_return(1_234_567_890)
       paths = described_class.file_paths(form)
       expect(paths[:migration]).to eq("db/triggers/1234567890_test_trigger.rb")
     end
@@ -260,7 +260,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
       File.write(triggers_dir.join("20231215120000_existing.rb"), "# existing migration")
 
       number = described_class.send(:next_migration_number)
-      expect(number).to be > 20231215120000
+      expect(number).to be > 20_231_215_120_000
     end
 
     it "handles multiple existing migrations" do
@@ -271,7 +271,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
       File.write(triggers_dir.join("20231215120005_third.rb"), "# third")
 
       number = described_class.send(:next_migration_number)
-      expect(number).to be > 20231215120005
+      expect(number).to be > 20_231_215_120_005
     end
 
     it "handles timestamp collision by incrementing" do
@@ -397,7 +397,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
       it "includes condition in checksum calculation" do
         form1 = form.dup
         form1.condition = "NEW.status = 'active'"
-        result1 = described_class.create_trigger(form1, actor: { type: "User", id: 1 })
+        described_class.create_trigger(form1, actor: { type: "User", id: 1 })
         registry1 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
         checksum1 = registry1.checksum
 
@@ -408,7 +408,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
 
         form2 = form.dup
         form2.condition = "NEW.status = 'inactive'"
-        result2 = described_class.create_trigger(form2, actor: { type: "User", id: 1 })
+        described_class.create_trigger(form2, actor: { type: "User", id: 1 })
         registry2 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
         checksum2 = registry2.checksum
 
@@ -442,7 +442,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
 
     it "handles environment list in registry" do
       form.environments = %w[production staging]
-      result = described_class.create_trigger(form, actor: { type: "User", id: 1 })
+      described_class.create_trigger(form, actor: { type: "User", id: 1 })
 
       registry = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
       expect(registry.environment).to eq("production,staging")
@@ -450,7 +450,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
 
     it "handles empty environment list in registry" do
       form.environments = []
-      result = described_class.create_trigger(form, actor: { type: "User", id: 1 })
+      described_class.create_trigger(form, actor: { type: "User", id: 1 })
 
       registry = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
       expect(registry.environment).to be_nil
@@ -468,7 +468,9 @@ RSpec.describe PgSqlTriggers::Generator::Service do
 
     it "logs errors when Rails is available" do
       allow(File).to receive(:write).and_raise(StandardError.new("Test error"))
+      # rubocop:disable RSpec/VerifiedDoubles
       allow(Rails).to receive(:logger).and_return(double(error: nil))
+      # rubocop:enable RSpec/VerifiedDoubles
 
       result = described_class.create_trigger(form, actor: { type: "User", id: 1 })
 
@@ -478,7 +480,8 @@ RSpec.describe PgSqlTriggers::Generator::Service do
 
     it "handles errors when Rails is not available" do
       allow(File).to receive(:write).and_raise(StandardError.new("Test error"))
-      allow(described_class).to receive(:defined?).with(:Rails).and_return(false)
+      # NOTE: defined? is a Ruby keyword, not a method, so we can't mock it
+      # The error handling should work regardless of Rails availability
 
       result = described_class.create_trigger(form, actor: { type: "User", id: 1 })
 
@@ -490,7 +493,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
       allow(PgSqlTriggers::TriggerRegistry).to receive(:column_names).and_return([])
       form.condition = "NEW.id > 0"
 
-      result = described_class.create_trigger(form, actor: { type: "User", id: 1 })
+      described_class.create_trigger(form, actor: { type: "User", id: 1 })
 
       registry = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
       expect(registry.respond_to?(:condition) ? registry.condition : nil).to be_nil

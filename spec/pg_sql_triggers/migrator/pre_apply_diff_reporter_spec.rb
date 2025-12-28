@@ -139,7 +139,7 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
         result = described_class.format_summary(diff_result)
         expect(result).to include("Differences detected")
         expect(result).to include("new object(s)")
-        expect(result).to include("modified object(s)")
+        expect(result).to include("existing object(s) will be modified")
       end
     end
   end
@@ -154,8 +154,9 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
         message: "Function will be created"
       }
       result = described_class.send(:format_function_diff, func_diff)
-      expect(result).to include("new_func")
-      expect(result).to include("NEW")
+      result_str = result.join("\n")
+      expect(result_str).to include("new_func")
+      expect(result_str).to include("NEW")
     end
 
     it "formats modified function" do
@@ -167,10 +168,11 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
         message: "Function body differs"
       }
       result = described_class.send(:format_function_diff, func_diff)
-      expect(result).to include("modified_func")
-      expect(result).to include("MODIFIED")
-      expect(result).to include("Expected:")
-      expect(result).to include("Current:")
+      result_str = result.join("\n")
+      expect(result_str).to include("modified_func")
+      expect(result_str).to include("MODIFIED")
+      expect(result_str).to include("Expected:")
+      expect(result_str).to include("Current:")
     end
 
     it "formats unchanged function" do
@@ -180,8 +182,9 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
         message: "Function matches"
       }
       result = described_class.send(:format_function_diff, func_diff)
-      expect(result).to include("unchanged_func")
-      expect(result).to include("UNCHANGED")
+      result_str = result.join("\n")
+      expect(result_str).to include("unchanged_func")
+      expect(result_str).to include("UNCHANGED")
     end
 
     it "formats unknown status" do
@@ -191,8 +194,9 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
         message: "Unknown status"
       }
       result = described_class.send(:format_function_diff, func_diff)
-      expect(result).to include("unknown_func")
-      expect(result).to include("unknown")
+      result_str = result.join("\n")
+      expect(result_str).to include("unknown_func")
+      expect(result_str).to include("unknown")
     end
   end
 
@@ -206,9 +210,10 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
         message: "Trigger will be created"
       }
       result = described_class.send(:format_trigger_diff, trigger_diff)
-      expect(result).to include("new_trigger")
-      expect(result).to include("NEW")
-      expect(result).to include("Definition:")
+      result_str = result.join("\n")
+      expect(result_str).to include("new_trigger")
+      expect(result_str).to include("NEW")
+      expect(result_str).to include("Definition:")
     end
 
     it "formats modified trigger" do
@@ -221,13 +226,14 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
         differences: ["Table name differs", "Events differ"]
       }
       result = described_class.send(:format_trigger_diff, trigger_diff)
-      expect(result).to include("modified_trigger")
-      expect(result).to include("MODIFIED")
-      expect(result).to include("Differences:")
-      expect(result).to include("Table name differs")
-      expect(result).to include("Events differ")
-      expect(result).to include("Expected:")
-      expect(result).to include("Current:")
+      result_str = result.join("\n")
+      expect(result_str).to include("modified_trigger")
+      expect(result_str).to include("MODIFIED")
+      expect(result_str).to include("Differences:")
+      expect(result_str).to include("Table name differs")
+      expect(result_str).to include("Events differ")
+      expect(result_str).to include("Expected:")
+      expect(result_str).to include("Current:")
     end
 
     it "formats modified trigger without differences array" do
@@ -239,8 +245,9 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
         message: "Trigger definition differs"
       }
       result = described_class.send(:format_trigger_diff, trigger_diff)
-      expect(result).to include("modified_trigger")
-      expect(result).to include("MODIFIED")
+      result_str = result.join("\n")
+      expect(result_str).to include("modified_trigger")
+      expect(result_str).to include("MODIFIED")
     end
 
     it "formats unchanged trigger" do
@@ -250,8 +257,9 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
         message: "Trigger matches"
       }
       result = described_class.send(:format_trigger_diff, trigger_diff)
-      expect(result).to include("unchanged_trigger")
-      expect(result).to include("UNCHANGED")
+      result_str = result.join("\n")
+      expect(result_str).to include("unchanged_trigger")
+      expect(result_str).to include("UNCHANGED")
     end
 
     it "formats unknown status" do
@@ -261,8 +269,9 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
         message: "Unknown status"
       }
       result = described_class.send(:format_trigger_diff, trigger_diff)
-      expect(result).to include("unknown_trigger")
-      expect(result).to include("unknown")
+      result_str = result.join("\n")
+      expect(result_str).to include("unknown_trigger")
+      expect(result_str).to include("unknown")
     end
   end
 
@@ -291,5 +300,3 @@ RSpec.describe PgSqlTriggers::Migrator::PreApplyDiffReporter do
     end
   end
 end
-
-

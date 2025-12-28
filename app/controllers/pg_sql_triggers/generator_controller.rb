@@ -159,7 +159,7 @@ module PgSqlTriggers
       temp_registry.definition = definition.to_json
 
       validator = PgSqlTriggers::Testing::SyntaxValidator.new(temp_registry)
-      
+
       # Validate function syntax
       function_result = validator.validate_function_syntax
       return function_result unless function_result[:valid]

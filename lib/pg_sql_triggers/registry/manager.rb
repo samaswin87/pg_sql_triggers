@@ -74,7 +74,7 @@ module PgSqlTriggers
           # DSL definitions don't have function_body, so use placeholder
           # Generator forms have function_body, so calculate real checksum
           function_body_value = definition.respond_to?(:function_body) ? definition.function_body : nil
-          return "placeholder" if function_body_value.nil? || function_body_value.empty?
+          return "placeholder" if function_body_value.blank?
 
           # Use field-concatenation algorithm (consistent with TriggerRegistry#calculate_checksum)
           require "digest"

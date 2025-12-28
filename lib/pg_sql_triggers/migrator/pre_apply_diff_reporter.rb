@@ -130,7 +130,7 @@ module PgSqlTriggers
           else
             output << "    Status: #{trigger_diff[:status]}"
           end
-          output.join("\n")
+          output
         end
 
         def indent_text(text, spaces)
