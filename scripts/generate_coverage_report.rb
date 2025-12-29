@@ -3,6 +3,7 @@
 
 require "json"
 require "pathname"
+require "active_support/core_ext/object/blank"
 
 def calculate_file_coverage(lines)
   return 0.0 if lines.blank?
