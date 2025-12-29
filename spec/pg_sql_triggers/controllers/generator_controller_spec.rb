@@ -47,6 +47,65 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
       expect(assigns(:form)).to be_a(PgSqlTriggers::Generator::Form)
       expect(assigns(:available_tables)).to include("users")
     end
+
+    context "when session contains form data" do
+      let(:session_form_data) do
+        {
+          "trigger_name" => "restored_trigger",
+          "table_name" => "users",
+          "function_name" => "restored_function",
+          "function_body" => "CREATE OR REPLACE FUNCTION restored_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;",
+          "events" => ["insert", "update"],
+          "version" => "2",
+          "enabled" => "true",
+          "timing" => "after",
+          "condition" => "NEW.status = 'active'",
+          "environments" => ["production"],
+          "generate_function_stub" => "true"
+        }
+      end
+
+      it "restores form data from session when available" do
+        session[:generator_form_data] = session_form_data
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(%w[users posts])
+
+        get :new
+
+        form = assigns(:form)
+        expect(form).to be_a(PgSqlTriggers::Generator::Form)
+        expect(form.trigger_name).to eq("restored_trigger")
+        expect(form.table_name).to eq("users")
+        expect(form.function_name).to eq("restored_function")
+        expect(form.function_body).to include("restored_function")
+        expect(form.events).to include("insert", "update")
+        # Version is stored as string in session, but Form converts it to integer
+        expect(form.version.to_i).to eq(2)
+        expect(form.enabled).to be true
+        expect(form.timing).to eq("after")
+        expect(form.condition).to eq("NEW.status = 'active'")
+        expect(form.environments).to include("production")
+      end
+
+      it "clears session data after restoring" do
+        session[:generator_form_data] = session_form_data
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(%w[users posts])
+
+        get :new
+
+        expect(session[:generator_form_data]).to be_nil
+      end
+
+      it "initializes new form when session data is empty" do
+        session[:generator_form_data] = nil
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(%w[users posts])
+
+        get :new
+
+        form = assigns(:form)
+        expect(form).to be_a(PgSqlTriggers::Generator::Form)
+        expect(form.trigger_name).to be_nil
+      end
+    end
   end
 
   describe "POST #preview" do
@@ -59,6 +118,32 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
       expect(assigns(:dsl_content)).to be_present
       expect(assigns(:function_content)).to be_present
       expect(assigns(:file_paths)).to be_present
+    end
+
+    it "stores form data in session when form is valid" do
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
+      allow(PgSqlTriggers::Testing::SyntaxValidator).to receive_message_chain(:new, :validate_function_syntax).and_return({ valid: true })
+      allow(controller).to receive(:render).and_return(nil)
+
+      post :preview, params: valid_params
+
+      expect(session[:generator_form_data]).to be_present
+      expect(session[:generator_form_data]["trigger_name"]).to eq("test_trigger")
+      expect(session[:generator_form_data]["table_name"]).to eq("users")
+      expect(session[:generator_form_data]["function_name"]).to eq("test_function")
+      expect(session[:generator_form_data]["events"]).to include("insert", "update")
+    end
+
+    it "does not store form data in session when form is invalid" do
+      invalid_params = valid_params.deep_dup
+      invalid_params[:pg_sql_triggers_generator_form][:trigger_name] = ""
+
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(["users"])
+      allow(controller).to receive(:render).and_return(nil)
+
+      post :preview, params: invalid_params
+
+      expect(session[:generator_form_data]).to be_nil
     end
 
     it "validates SQL function body" do
@@ -81,6 +166,45 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
       post :preview, params: invalid_params
       expect(controller).to have_received(:render).with(:new)
     end
+
+    context "when back_to_edit parameter is present" do
+      it "stores form data in session and redirects to new" do
+        params_with_back = valid_params.deep_dup
+        params_with_back[:back_to_edit] = "1"
+
+        post :preview, params: params_with_back
+
+        expect(session[:generator_form_data]).to be_present
+        expect(session[:generator_form_data]["trigger_name"]).to eq("test_trigger")
+        expect(session[:generator_form_data]["table_name"]).to eq("users")
+        expect(response).to redirect_to(new_generator_path)
+      end
+
+      it "preserves all form fields including condition and timing" do
+        params_with_back = valid_params.deep_dup
+        params_with_back[:back_to_edit] = "1"
+        params_with_back[:pg_sql_triggers_generator_form][:condition] = "NEW.id > 0"
+        params_with_back[:pg_sql_triggers_generator_form][:timing] = "after"
+
+        post :preview, params: params_with_back
+
+        expect(session[:generator_form_data]["condition"]).to eq("NEW.id > 0")
+        expect(session[:generator_form_data]["timing"]).to eq("after")
+        expect(response).to redirect_to(new_generator_path)
+      end
+
+      it "does not validate form when back_to_edit is present" do
+        invalid_params = valid_params.deep_dup
+        invalid_params[:back_to_edit] = "1"
+        invalid_params[:pg_sql_triggers_generator_form][:trigger_name] = ""
+
+        post :preview, params: invalid_params
+
+        # Should still store and redirect even if form is invalid
+        expect(session[:generator_form_data]).to be_present
+        expect(response).to redirect_to(new_generator_path)
+      end
+    end
   end
 
   describe "POST #create" do
@@ -96,6 +220,38 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
       post :create, params: valid_params
       expect(response).to redirect_to(root_path)
       expect(flash[:notice]).to include("successfully")
+    end
+
+    it "clears session data after successful creation" do
+      session[:generator_form_data] = { "trigger_name" => "test" }
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
+      allow(PgSqlTriggers::Testing::SyntaxValidator).to receive_message_chain(:new, :validate_function_syntax).and_return({ valid: true })
+      allow(PgSqlTriggers::Generator::Service).to receive(:create_trigger).and_return({
+                                                                                        success: true,
+                                                                                        migration_path: "db/triggers/20231215120001_test_trigger.rb",
+                                                                                        dsl_path: "app/triggers/test_trigger.rb"
+                                                                                      })
+
+      post :create, params: valid_params
+
+      expect(session[:generator_form_data]).to be_nil
+    end
+
+    it "does not clear session data when creation fails" do
+      session[:generator_form_data] = { "trigger_name" => "test" }
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
+      allow(PgSqlTriggers::Testing::SyntaxValidator).to receive_message_chain(:new, :validate_function_syntax).and_return({ valid: true })
+      allow(PgSqlTriggers::Generator::Service).to receive(:create_trigger).and_return({
+                                                                                        success: false,
+                                                                                        error: "Permission denied"
+                                                                                      })
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :list_tables).and_return(["users"])
+      allow(controller).to receive(:render).with(:new).and_return(nil)
+
+      post :create, params: valid_params
+
+      # Session data should still be present (though it might be overwritten by the new form data)
+      expect(session[:generator_form_data]).to be_present
     end
 
     it "shows error when creation fails" do
