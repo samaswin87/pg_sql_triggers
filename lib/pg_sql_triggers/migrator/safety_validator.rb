@@ -183,7 +183,15 @@ module PgSqlTriggers
           # Check if any DROP is followed by a CREATE of the same object
           operations[:drops].each do |drop|
             matching_create = operations[:creates].find do |create|
-              create[:type] == drop[:type] && create[:name] == drop[:name]
+              type_match = create[:type] == drop[:type]
+              name_match = create[:name] == drop[:name]
+              # For triggers, also match on table_name
+              table_match = if drop[:type] == :trigger
+                              create[:table_name] == drop[:table_name]
+                            else
+                              true # Functions don't have table_name
+                            end
+              type_match && name_match && table_match
             end
 
             next unless matching_create

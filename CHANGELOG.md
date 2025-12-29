@@ -73,6 +73,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `InstallGenerator` - initializer creation, migration copying, route mounting, readme display
 
 ### Fixed
+- Fixed form data persistence when navigating between preview and edit pages
+  - Form data (including edits to condition, timing, and function_body) is now preserved when clicking "Back to Edit" from preview page
+  - Implemented session-based storage to maintain form state across page navigation
+  - All form fields are restored when returning to edit page: trigger_name, table_name, function_name, function_body, events, version, enabled, timing, condition, and environments
+  - Session data is automatically cleared after successful trigger creation
+  - Comprehensive test coverage added for session persistence functionality
 - Fixed checksum calculation consistency across all code paths (field-concatenation algorithm)
 - Fixed `Registry::Manager.diff` method to use drift detection
 - Fixed dashboard controller to display actual drifted trigger count

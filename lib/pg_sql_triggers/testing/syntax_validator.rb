@@ -65,9 +65,32 @@ module PgSqlTriggers
           {}
         end
         function_name = definition["function_name"] || "test_validation_function"
+        events = Array(definition["events"] || [])
         sanitized_table = ActiveRecord::Base.connection.quote_string(@trigger.table_name)
         sanitized_function = ActiveRecord::Base.connection.quote_string(function_name)
         sanitized_condition = @trigger.condition
+
+        # Check if condition references OLD values
+        condition_uses_old = sanitized_condition.match?(/\bOLD\./i)
+
+        # Determine which event to use for validation
+        # If condition uses OLD, we must use UPDATE or DELETE since INSERT doesn't have OLD
+        # If condition doesn't use OLD, we can use INSERT
+        if condition_uses_old
+          # Condition references OLD, so it can't be used with INSERT
+          if events.include?("insert")
+            return {
+              valid: false,
+              error: "WHEN condition cannot reference OLD values for INSERT triggers. " \
+                     "Use UPDATE or DELETE events, or modify condition to only use NEW values."
+            }
+          end
+          # Use UPDATE for validation if available (it has OLD), otherwise use DELETE
+          test_event = events.include?("update") ? "UPDATE" : "DELETE"
+        else
+          # Condition doesn't reference OLD, so INSERT is fine
+          test_event = "INSERT"
+        end
 
         # Validate condition by creating a temporary trigger with the condition
         # This is the only way to validate WHEN conditions since they use NEW/OLD
@@ -81,7 +104,7 @@ module PgSqlTriggers
 
         test_trigger_sql = <<~SQL.squish
           CREATE TRIGGER test_validation_trigger
-          BEFORE INSERT ON #{sanitized_table}
+          BEFORE #{test_event} ON #{sanitized_table}
           FOR EACH ROW
           WHEN (#{sanitized_condition})
           EXECUTE FUNCTION #{sanitized_function}();

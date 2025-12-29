@@ -8,7 +8,16 @@ module PgSqlTriggers
     # GET /generator/new
     # Display the multi-step form wizard
     def new
-      @form = PgSqlTriggers::Generator::Form.new
+      # Restore form data from session if available (when user clicks "Back to Edit")
+      session_data = session[:generator_form_data]
+      if session_data
+        # Convert to hash and symbolize keys for Form initialization
+        form_data = session_data.is_a?(Hash) ? session_data.symbolize_keys : session_data.to_h.symbolize_keys
+        @form = PgSqlTriggers::Generator::Form.new(form_data)
+        session.delete(:generator_form_data)
+      else
+        @form = PgSqlTriggers::Generator::Form.new
+      end
       @available_tables = fetch_available_tables
     end
 
@@ -17,7 +26,19 @@ module PgSqlTriggers
     def preview
       @form = PgSqlTriggers::Generator::Form.new(generator_params)
 
+      # If user clicked "Back to Edit", store form data in session and redirect
+      if params[:back_to_edit].present?
+        # Store form data as a hash (convert ActionController::Parameters to hash)
+        session[:generator_form_data] = generator_params.to_h
+        redirect_to new_generator_path
+        return
+      end
+
       if @form.valid?
+        # Store form data in session so it can be restored if user clicks "Back to Edit"
+        # Convert ActionController::Parameters to hash
+        session[:generator_form_data] = generator_params.to_h
+
         # Validate SQL function body (required field)
         @sql_validation = validate_function_sql(@form)
 
@@ -58,6 +79,8 @@ module PgSqlTriggers
         result = PgSqlTriggers::Generator::Service.create_trigger(@form, actor: current_actor)
 
         if result[:success]
+          # Clear session data after successful creation
+          session.delete(:generator_form_data)
           files_msg = "Migration: #{result[:migration_path]}, DSL: #{result[:dsl_path]}"
           redirect_to root_path,
                       notice: "Trigger generated successfully. Files created: #{files_msg}"

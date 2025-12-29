@@ -136,7 +136,27 @@
         style="padding: 0.75rem 1.5rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
       Generate Files
     </button>
-    <%= link_to "Back to Edit", new_generator_path, class: "btn", style: "background: #6c757d; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 4px;" %>
+    <%= form_with url: preview_generator_index_path, method: :post, scope: :pg_sql_triggers_generator_form, id: "back-to-edit-form", style: "margin: 0;" do |f| %>
+      <%= f.hidden_field :trigger_name, value: @form.trigger_name %>
+      <%= f.hidden_field :table_name, value: @form.table_name %>
+      <%= f.hidden_field :function_name, value: @form.function_name %>
+      <%= f.hidden_field :version, value: @form.version %>
+      <%= f.hidden_field :enabled, value: @form.enabled %>
+      <%= f.hidden_field :generate_function_stub, value: @form.generate_function_stub %>
+      <%= f.hidden_field :timing, id: "back-to-edit-timing" %>
+      <%= f.hidden_field :condition, id: "back-to-edit-condition" %>
+      <%= f.hidden_field :function_body, id: "back-to-edit-function-body" %>
+      <% Array(@form.events).reject(&:blank?).each do |event| %>
+        <%= hidden_field_tag "pg_sql_triggers_generator_form[events][]", event %>
+      <% end %>
+      <% Array(@form.environments).reject(&:blank?).each do |env| %>
+        <%= hidden_field_tag "pg_sql_triggers_generator_form[environments][]", env %>
+      <% end %>
+      <%= hidden_field_tag :back_to_edit, "1" %>
+      <button type="submit" class="btn" style="background: #6c757d; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer;">
+        Back to Edit
+      </button>
+    <% end %>
     <%= link_to "Cancel", root_path, class: "btn", style: "background: #6c757d; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 4px;" %>
   </div>
 <% end %>
@@ -209,10 +229,47 @@ PgSqlTriggers::DSL.pg_sql_trigger "${triggerName}" do
     }
   }
 
+  // Sync form values to back-to-edit form before submission
+  function syncBackToEditForm() {
+    const timingSelect = document.getElementById('preview-timing-select');
+    const conditionTextarea = document.getElementById('preview-condition-textarea');
+    const functionBodyTextarea = document.querySelector('#generator-create-form textarea[name="pg_sql_triggers_generator_form[function_body]"]');
+    const backToEditForm = document.getElementById('back-to-edit-form');
+
+    if (!backToEditForm) return;
+
+    // Update timing
+    const backToEditTiming = document.getElementById('back-to-edit-timing');
+    if (backToEditTiming && timingSelect) {
+      backToEditTiming.value = timingSelect.value || 'before';
+    }
+
+    // Update condition
+    const backToEditCondition = document.getElementById('back-to-edit-condition');
+    if (backToEditCondition && conditionTextarea) {
+      backToEditCondition.value = conditionTextarea.value || '';
+    }
+
+    // Update function_body - get from the create form textarea
+    const backToEditFunctionBody = document.getElementById('back-to-edit-function-body');
+    if (backToEditFunctionBody) {
+      if (functionBodyTextarea) {
+        backToEditFunctionBody.value = functionBodyTextarea.value || '';
+      } else {
+        // Fallback: try to find by name attribute
+        const createFormFunctionBody = document.querySelector('textarea[name="pg_sql_triggers_generator_form[function_body]"]');
+        if (createFormFunctionBody) {
+          backToEditFunctionBody.value = createFormFunctionBody.value || '';
+        }
+      }
+    }
+  }
+
   // Initialize on DOM ready
   document.addEventListener('DOMContentLoaded', function() {
     const timingSelect = document.getElementById('preview-timing-select');
     const conditionTextarea = document.getElementById('preview-condition-textarea');
+    const backToEditForm = document.getElementById('back-to-edit-form');
 
     if (timingSelect) {
       timingSelect.addEventListener('change', updatePreview);
@@ -223,6 +280,13 @@ PgSqlTriggers::DSL.pg_sql_trigger "${triggerName}" do
       // Also update on paste
       conditionTextarea.addEventListener('paste', function() {
         setTimeout(updatePreview, 10);
+      });
+    }
+
+    // Sync form values before submitting back-to-edit form
+    if (backToEditForm) {
+      backToEditForm.addEventListener('submit', function(e) {
+        syncBackToEditForm();
       });
     }
 
