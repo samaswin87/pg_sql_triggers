@@ -55,7 +55,7 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
           "table_name" => "users",
           "function_name" => "restored_function",
           "function_body" => "CREATE OR REPLACE FUNCTION restored_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;",
-          "events" => ["insert", "update"],
+          "events" => %w[insert update],
           "version" => "2",
           "enabled" => "true",
           "timing" => "after",
@@ -72,18 +72,20 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
         get :new
 
         form = assigns(:form)
-        expect(form).to be_a(PgSqlTriggers::Generator::Form)
-        expect(form.trigger_name).to eq("restored_trigger")
-        expect(form.table_name).to eq("users")
-        expect(form.function_name).to eq("restored_function")
-        expect(form.function_body).to include("restored_function")
-        expect(form.events).to include("insert", "update")
-        # Version is stored as string in session, but Form converts it to integer
-        expect(form.version.to_i).to eq(2)
-        expect(form.enabled).to be true
-        expect(form.timing).to eq("after")
-        expect(form.condition).to eq("NEW.status = 'active'")
-        expect(form.environments).to include("production")
+        aggregate_failures do
+          expect(form).to be_a(PgSqlTriggers::Generator::Form)
+          expect(form.trigger_name).to eq("restored_trigger")
+          expect(form.table_name).to eq("users")
+          expect(form.function_name).to eq("restored_function")
+          expect(form.function_body).to include("restored_function")
+          expect(form.events).to include("insert", "update")
+          # Version is stored as string in session, but Form converts it to integer
+          expect(form.version.to_i).to eq(2)
+          expect(form.enabled).to be true
+          expect(form.timing).to eq("after")
+          expect(form.condition).to eq("NEW.status = 'active'")
+          expect(form.environments).to include("production")
+        end
       end
 
       it "clears session data after restoring" do
