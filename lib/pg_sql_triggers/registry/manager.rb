@@ -4,9 +4,37 @@ module PgSqlTriggers
   module Registry
     class Manager
       class << self
+        # Request-level cache to avoid N+1 queries when loading multiple trigger files
+        # This cache is cleared after each request/transaction to ensure data consistency
+        def _registry_cache
+          @_registry_cache ||= {}
+        end
+
+        def _clear_registry_cache
+          @_registry_cache = {}
+        end
+
+        # Batch load existing triggers into cache to avoid N+1 queries
+        # Call this before registering multiple triggers for better performance
+        def preload_triggers(trigger_names)
+          return if trigger_names.empty?
+
+          # Find all triggers that aren't already cached
+          uncached_names = trigger_names - _registry_cache.keys
+          return if uncached_names.empty?
+
+          # Batch load all uncached triggers in a single query
+          PgSqlTriggers::TriggerRegistry.where(trigger_name: uncached_names).find_each do |trigger|
+            _registry_cache[trigger.trigger_name] = trigger
+          end
+        end
+
         def register(definition)
           trigger_name = definition.name
-          existing = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: trigger_name)
+
+          # Use cached lookup if available to avoid N+1 queries during trigger file loading
+          existing = _registry_cache[trigger_name] ||=
+            PgSqlTriggers::TriggerRegistry.find_by(trigger_name: trigger_name)
 
           # Calculate checksum using field-concatenation (consistent with TriggerRegistry model)
           checksum = calculate_checksum(definition)
@@ -23,10 +51,23 @@ module PgSqlTriggers
           }
 
           if existing
-            existing.update!(attributes)
-            existing
+            begin
+              existing.update!(attributes)
+              # Update cache with the modified record (reload to get fresh data)
+              reloaded = existing.reload
+              _registry_cache[trigger_name] = reloaded
+              reloaded
+            rescue ActiveRecord::RecordNotFound
+              # Cached record was deleted, create a new one
+              new_record = PgSqlTriggers::TriggerRegistry.create!(attributes)
+              _registry_cache[trigger_name] = new_record
+              new_record
+            end
           else
-            PgSqlTriggers::TriggerRegistry.create!(attributes)
+            new_record = PgSqlTriggers::TriggerRegistry.create!(attributes)
+            # Cache the newly created record
+            _registry_cache[trigger_name] = new_record
+            new_record
           end
         end
 
@@ -83,7 +124,8 @@ module PgSqlTriggers
             definition.table_name,
             definition.version,
             function_body_value,
-            definition.condition || ""
+            definition.condition || "",
+            definition.timing || "before"
           ].join)
         end
       end

@@ -157,7 +157,14 @@ module PgSqlTriggers
     end
 
     def calculate_checksum
-      Digest::SHA256.hexdigest([trigger_name, table_name, version, function_body, condition].join)
+      Digest::SHA256.hexdigest([
+        trigger_name,
+        table_name,
+        version,
+        function_body || "",
+        condition || "",
+        timing || "before"
+      ].join)
     end
 
     def verify!

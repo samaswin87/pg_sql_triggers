@@ -31,6 +31,7 @@ module PgSqlTriggers
             #{'  '}
               version #{form.version}
               enabled #{form.enabled}
+              timing :#{form.timing || 'before'}
           RUBY
 
           code += "  when_env #{environments_list}\n" if form.environments.compact_blank.any?
@@ -51,8 +52,9 @@ module PgSqlTriggers
           function_body_sql = form.function_body.strip
 
           # Build the trigger creation SQL
+          timing_value = (form.timing || "before").upcase
           trigger_sql = "CREATE TRIGGER #{form.trigger_name}\n"
-          trigger_sql += "BEFORE #{events_sql} ON #{form.table_name}\n"
+          trigger_sql += "#{timing_value} #{events_sql} ON #{form.table_name}\n"
           trigger_sql += "FOR EACH ROW\n"
           trigger_sql += "WHEN (#{form.condition})\n" if form.condition.present?
           trigger_sql += "EXECUTE FUNCTION #{form.function_name}();"
@@ -173,6 +175,7 @@ module PgSqlTriggers
             enabled: form.enabled,
             environments: form.environments.compact_blank,
             condition: form.condition,
+            timing: form.timing || "before",
             function_body: function_content
           }
 
@@ -190,6 +193,9 @@ module PgSqlTriggers
 
           # Only include condition if the column exists and value is present
           attributes[:condition] = form.condition.presence if TriggerRegistry.column_names.include?("condition")
+
+          # Only include timing if the column exists
+          attributes[:timing] = (form.timing || "before") if TriggerRegistry.column_names.include?("timing")
 
           registry = TriggerRegistry.create!(attributes)
 
@@ -250,7 +256,8 @@ module PgSqlTriggers
             definition[:table_name],
             definition[:version],
             definition[:function_body] || "",
-            definition[:condition] || ""
+            definition[:condition] || "",
+            definition[:timing] || "before"
           ].join)
         end
       end

@@ -26,6 +26,7 @@ PgSqlTriggers::DSL.pg_sql_trigger "users_email_validation" do
 
   version 1
   enabled false
+  timing :before
 
   when_env :production
 end
@@ -79,6 +80,14 @@ when_env :production           # Only in production
 when_env :staging, :production # Multiple environments
 ```
 
+#### `timing`
+Specifies when the trigger fires relative to the event (BEFORE or AFTER):
+
+```ruby
+timing :before  # Trigger fires before constraint checks (default)
+timing :after   # Trigger fires after constraint checks
+```
+
 ### Complete Example
 
 ```ruby
@@ -90,6 +99,7 @@ PgSqlTriggers::DSL.pg_sql_trigger "orders_billing_trigger" do
 
   version 2
   enabled true
+  timing :after
 
   when_env :production, :staging
 end
@@ -108,13 +118,14 @@ The web UI generator provides a user-friendly interface for creating triggers:
    - **Trigger Name**: Lowercase letters, numbers, and underscores only
    - **Table Name**: The PostgreSQL table to attach the trigger to
    - **Function Name**: The PostgreSQL function name (must match the function body)
+   - **Timing**: When the trigger fires - BEFORE (before constraint checks) or AFTER (after constraint checks)
    - **Events**: Select one or more events (INSERT, UPDATE, DELETE, TRUNCATE)
    - **Function Body**: The complete PostgreSQL function definition
    - **Version**: Starting version number (default: 1)
    - **Enabled**: Whether the trigger should be enabled initially
    - **Environments**: Optional environment restrictions
    - **Condition**: Optional WHEN condition for the trigger
-3. Preview the generated DSL and migration code
+3. Preview the generated DSL and migration code (includes timing and condition display)
 4. Create the trigger files
 
 The generator creates:

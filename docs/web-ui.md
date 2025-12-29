@@ -289,6 +289,20 @@ end
 ![Main Dashboard](screenshots/dashboard.png)
 
 ### Trigger Generator
+
+The trigger generator provides a comprehensive form for creating triggers:
+
+1. **Basic Information**: Trigger name, table name, function name, and function body
+2. **Trigger Events**: Select timing (BEFORE/AFTER) and events (INSERT, UPDATE, DELETE, TRUNCATE)
+3. **Configuration**: Version, environments, WHEN condition, and enabled state
+4. **Preview**: Review generated DSL and migration code with timing and condition information
+
+The preview page displays:
+- Generated DSL code with timing
+- Trigger configuration summary (timing, events, table, function, condition)
+- PL/pgSQL function body (editable)
+- SQL validation results
+
 ![Trigger Generator](screenshots/generator.png)
 
 ### Migration Management

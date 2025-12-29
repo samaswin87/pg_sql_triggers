@@ -14,6 +14,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
       events: %w[insert update],
       version: 1,
       enabled: false,
+      timing: "before",
       function_body: "CREATE OR REPLACE FUNCTION test_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;",
       environments: ["production"]
     )
@@ -54,6 +55,18 @@ RSpec.describe PgSqlTriggers::Generator::Service do
       form.condition = "NEW.status = 'active'"
       code = described_class.generate_dsl(form)
       expect(code).to include('when_condition "NEW.status = \'active\'"')
+    end
+
+    it "includes timing in DSL" do
+      form.timing = "before"
+      code = described_class.generate_dsl(form)
+      expect(code).to include("timing :before")
+    end
+
+    it "includes timing in DSL (after)" do
+      form.timing = "after"
+      code = described_class.generate_dsl(form)
+      expect(code).to include("timing :after")
     end
 
     it "does not include when_env when no environments" do
@@ -133,6 +146,18 @@ RSpec.describe PgSqlTriggers::Generator::Service do
       expect(code).to include("EXECUTE FUNCTION test_function()")
     end
 
+    it "uses timing from form (before)" do
+      form.timing = "before"
+      code = described_class.generate_migration(form)
+      expect(code).to include("BEFORE INSERT OR UPDATE ON users")
+    end
+
+    it "uses timing from form (after)" do
+      form.timing = "after"
+      code = described_class.generate_migration(form)
+      expect(code).to include("AFTER INSERT OR UPDATE ON users")
+    end
+
     it "includes condition when present" do
       form.condition = "NEW.status = 'active'"
       code = described_class.generate_migration(form)
@@ -157,10 +182,26 @@ RSpec.describe PgSqlTriggers::Generator::Service do
       expect(code).to include("BEFORE INSERT ON users")
     end
 
+    it "handles single event with after timing" do
+      form.events = ["insert"]
+      form.timing = "after"
+      code = described_class.generate_migration(form)
+      expect(code).to include("AFTER INSERT ON users")
+      expect(code).not_to include("BEFORE INSERT ON users")
+    end
+
     it "handles all event types in SQL" do
       form.events = %w[insert update delete truncate]
       code = described_class.generate_migration(form)
       expect(code).to include("BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON users")
+    end
+
+    it "handles all event types with after timing" do
+      form.events = %w[insert update delete truncate]
+      form.timing = "after"
+      code = described_class.generate_migration(form)
+      expect(code).to include("AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE ON users")
+      expect(code).not_to include("BEFORE")
     end
 
     it "strips function body whitespace" do
@@ -357,6 +398,65 @@ RSpec.describe PgSqlTriggers::Generator::Service do
       expect(definition["name"]).to eq("test_trigger")
       expect(definition["table_name"]).to eq("users")
       expect(definition["events"]).to eq(%w[insert update])
+      expect(definition["timing"]).to eq("before")
+    end
+
+    context "when timing is 'after'" do
+      it "saves timing to registry" do
+        form.timing = "after"
+        described_class.create_trigger(form, actor: { type: "User", id: 1 })
+
+        registry = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
+        expect(registry.timing).to eq("after") if PgSqlTriggers::TriggerRegistry.column_names.include?("timing")
+      end
+
+      it "includes timing in definition JSON" do
+        form.timing = "after"
+        described_class.create_trigger(form, actor: { type: "User", id: 1 })
+
+        registry = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
+        definition = JSON.parse(registry.definition)
+        expect(definition["timing"]).to eq("after")
+      end
+
+      it "generates migration with AFTER timing" do
+        form.timing = "after"
+        result = described_class.create_trigger(form, actor: { type: "User", id: 1 })
+
+        migration_content = File.read(rails_root.join(result[:migration_path]))
+        expect(migration_content).to include("AFTER INSERT OR UPDATE ON users")
+        expect(migration_content).not_to include("BEFORE INSERT OR UPDATE ON users")
+      end
+
+      it "generates DSL with after timing" do
+        form.timing = "after"
+        result = described_class.create_trigger(form, actor: { type: "User", id: 1 })
+
+        dsl_content = File.read(rails_root.join(result[:dsl_path]))
+        expect(dsl_content).to include("timing :after")
+        expect(dsl_content).not_to include("timing :before")
+      end
+
+      it "includes timing in checksum calculation" do
+        form1 = form.dup
+        form1.timing = "before"
+        described_class.create_trigger(form1, actor: { type: "User", id: 1 })
+        registry1 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
+        checksum1 = registry1.checksum
+
+        # Clean up
+        PgSqlTriggers::TriggerRegistry.destroy_all
+        FileUtils.rm_rf(rails_root.join("app", "triggers"))
+        FileUtils.rm_rf(rails_root.join("db", "triggers"))
+
+        form2 = form.dup
+        form2.timing = "after"
+        described_class.create_trigger(form2, actor: { type: "User", id: 1 })
+        registry2 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
+        checksum2 = registry2.checksum
+
+        expect(checksum1).not_to eq(checksum2)
+      end
     end
 
     it "calculates checksum" do
@@ -571,13 +671,38 @@ RSpec.describe PgSqlTriggers::Generator::Service do
         table_name: "users",
         version: 1,
         function_body: "CREATE FUNCTION test()",
-        condition: "NEW.id > 0"
+        condition: "NEW.id > 0",
+        timing: "before"
       }
 
       checksum1 = described_class.send(:calculate_checksum, definition)
       checksum2 = described_class.send(:calculate_checksum, definition)
 
       expect(checksum1).to eq(checksum2)
+    end
+
+    it "includes timing in checksum calculation" do
+      def1 = {
+        name: "test",
+        table_name: "users",
+        version: 1,
+        function_body: "CREATE FUNCTION test()",
+        condition: "NEW.id > 0",
+        timing: "before"
+      }
+      def2 = {
+        name: "test",
+        table_name: "users",
+        version: 1,
+        function_body: "CREATE FUNCTION test()",
+        condition: "NEW.id > 0",
+        timing: "after"
+      }
+
+      checksum1 = described_class.send(:calculate_checksum, def1)
+      checksum2 = described_class.send(:calculate_checksum, def2)
+
+      expect(checksum1).not_to eq(checksum2)
     end
   end
 end

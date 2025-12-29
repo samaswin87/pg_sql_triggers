@@ -3,7 +3,7 @@
 module PgSqlTriggers
   module DSL
     class TriggerDefinition
-      attr_accessor :name, :table_name, :events, :function_name, :environments, :condition
+      attr_accessor :name, :table_name, :events, :function_name, :environments, :condition, :timing
 
       def initialize(name)
         @name = name
@@ -12,6 +12,7 @@ module PgSqlTriggers
         @enabled = false
         @environments = []
         @condition = nil
+        @timing = "before"
       end
 
       def table(table_name)
@@ -50,6 +51,14 @@ module PgSqlTriggers
         @condition = condition_sql
       end
 
+      def timing(timing_value = nil)
+        if timing_value.nil?
+          @timing
+        else
+          @timing = timing_value.to_s
+        end
+      end
+
       def function_body
         nil # DSL definitions don't include function_body directly
       end
@@ -63,7 +72,8 @@ module PgSqlTriggers
           version: @version,
           enabled: @enabled,
           environments: @environments,
-          condition: @condition
+          condition: @condition,
+          timing: @timing
         }
       end
     end

@@ -87,6 +87,23 @@
   <fieldset style="border: 1px solid #dee2e6; padding: 1rem; margin-bottom: 2rem; border-radius: 4px;">
     <legend style="font-weight: 600; color: #495057; padding: 0 0.5rem;">Trigger Events *</legend>
 
+    <div style="margin-bottom: 1rem;">
+      <%= f.label :timing, "Trigger Timing *", style: "display: block; font-weight: 500; margin-bottom: 0.25rem;" %>
+      <%= f.select :timing,
+          options_for_select([["Before", "before"], ["After", "after"]], @form.timing || "before"),
+          {},
+          {
+            required: true,
+            style: "width: 200px; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;"
+          } %>
+      <small style="color: #6c757d; display: block; margin-top: 0.25rem;">
+        When the trigger should fire: BEFORE (before constraint checks) or AFTER (after constraint checks)
+      </small>
+      <% if @form.errors[:timing].any? %>
+        <div style="color: #dc3545; margin-top: 0.25rem;"><%= @form.errors[:timing].first %></div>
+      <% end %>
+    </div>
+
     <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
       <% %w[insert update delete truncate].each do |event| %>
         <label style="display: flex; align-items: center; cursor: pointer;">

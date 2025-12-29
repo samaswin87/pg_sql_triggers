@@ -104,7 +104,7 @@ module PgSqlTriggers
     def generator_params
       params.require(:pg_sql_triggers_generator_form).permit(
         :trigger_name, :table_name, :function_name, :version,
-        :enabled, :condition, :generate_function_stub, :function_body,
+        :enabled, :condition, :timing, :generate_function_stub, :function_body,
         events: [], environments: []
       )
     end
@@ -137,12 +137,18 @@ module PgSqlTriggers
       return nil if form.function_body.blank?
 
       # Create a temporary trigger registry object for validation
-      temp_registry = PgSqlTriggers::TriggerRegistry.new(
+      # Only include condition if the column exists
+      registry_attributes = {
         trigger_name: form.trigger_name,
         table_name: form.table_name,
-        function_body: form.function_body,
-        condition: form.condition
-      )
+        function_body: form.function_body
+      }
+      # Only set condition if the column exists in the database
+      if PgSqlTriggers::TriggerRegistry.column_names.include?("condition")
+        registry_attributes[:condition] = form.condition
+      end
+
+      temp_registry = PgSqlTriggers::TriggerRegistry.new(registry_attributes)
 
       # Build definition JSON for condition validation
       definition = {
@@ -154,6 +160,7 @@ module PgSqlTriggers
         enabled: form.enabled,
         environments: form.environments.compact_blank,
         condition: form.condition,
+        timing: form.timing || "before",
         function_body: form.function_body
       }
       temp_registry.definition = definition.to_json

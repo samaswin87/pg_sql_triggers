@@ -44,6 +44,7 @@ RSpec.describe PgSqlTriggers::DSL::TriggerDefinition do
       expect(definition.enabled).to be(false)
       expect(definition.environments).to eq([])
       expect(definition.condition).to be_nil
+      expect(definition.timing).to eq("before")
     end
   end
 
@@ -109,6 +110,23 @@ RSpec.describe PgSqlTriggers::DSL::TriggerDefinition do
     end
   end
 
+  describe "#timing" do
+    it "sets the timing" do
+      definition.timing("before")
+      expect(definition.timing).to eq("before")
+    end
+
+    it "returns current timing when called without argument" do
+      definition.timing("after")
+      expect(definition.timing).to eq("after")
+    end
+
+    it "converts timing to string" do
+      definition.timing(:after)
+      expect(definition.timing).to eq("after")
+    end
+  end
+
   describe "#to_h" do
     it "converts definition to hash" do
       definition.table(:users)
@@ -128,7 +146,8 @@ RSpec.describe PgSqlTriggers::DSL::TriggerDefinition do
                            version: 2,
                            enabled: true,
                            environments: ["production"],
-                           condition: "NEW.id > 0"
+                           condition: "NEW.id > 0",
+                           timing: "before"
                          })
     end
   end

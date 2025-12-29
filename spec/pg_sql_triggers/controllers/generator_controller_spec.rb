@@ -228,6 +228,32 @@ RSpec.describe PgSqlTriggers::GeneratorController, type: :controller do
       expect(validator).not_to have_received(:validate_condition)
       expect(response).to redirect_to(root_path)
     end
+
+    it "handles condition attribute when column doesn't exist" do
+      # Temporarily stub column_names to exclude condition
+      original_column_names = PgSqlTriggers::TriggerRegistry.column_names
+      allow(PgSqlTriggers::TriggerRegistry).to receive(:column_names).and_return(original_column_names - ["condition"])
+
+      allow(PgSqlTriggers::DatabaseIntrospection).to receive_message_chain(:new, :validate_table).and_return({ valid: true })
+      validator = instance_double(PgSqlTriggers::Testing::SyntaxValidator)
+      allow(PgSqlTriggers::Testing::SyntaxValidator).to receive(:new).and_return(validator)
+      allow(validator).to receive_messages(validate_function_syntax: { valid: true }, validate_condition: { valid: true })
+      allow(PgSqlTriggers::Generator::Service).to receive(:create_trigger).and_return({
+                                                                                        success: true,
+                                                                                        migration_path: "db/triggers/20231215120001_test_trigger.rb",
+                                                                                        dsl_path: "app/triggers/test_trigger.rb"
+                                                                                      })
+
+      params_with_condition = valid_params.deep_dup.tap do |p|
+        p[:pg_sql_triggers_generator_form][:condition] = "NEW.id > 0"
+      end
+
+      # Should not raise an error about unknown attribute 'condition'
+      # The condition validation should still run, but the attribute won't be set on the registry object
+      post :create, params: params_with_condition
+      expect(response).to redirect_to(root_path)
+      expect(validator).to have_received(:validate_condition)
+    end
   end
 
   describe "POST #validate_table" do

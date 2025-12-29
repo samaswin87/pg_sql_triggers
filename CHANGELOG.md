@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Trigger timing support (BEFORE/AFTER) in generator and registry
+  - Added `timing` field to generator form with "before" and "after" options
+  - Added `timing` column to `pg_sql_triggers_registry` table (defaults to "before")
+  - Timing is now included in DSL generation, migration generation, and registry storage
+  - Timing is included in checksum calculation for drift detection
+  - Preview page now displays trigger timing and condition information
+  - Comprehensive test coverage for both "before" and "after" timing scenarios
+- Enhanced preview page UI for better testing and editing
+  - Timing and condition fields are now editable directly in the preview page
+  - Real-time DSL preview updates when timing or condition changes
+  - Improved visual layout with clear distinction between editable and read-only fields
+  - Better user experience for testing different timing and condition combinations before generating files
+  - JavaScript-powered dynamic preview that updates automatically as you type
+
+### Performance
+- Optimized `Registry::Manager.register` to prevent N+1 queries when loading multiple trigger files
+  - Added request-level caching for registry lookups to avoid redundant database queries
+  - Added `preload_triggers` method for batch loading triggers into cache
+  - Cache is automatically populated during registration and can be manually cleared
+  - Significantly reduces database queries when multiple trigger files are loaded during request processing
+
+### Added
 - Safety validation for trigger migrations (prevents unsafe DROP + CREATE operations)
   - `Migrator::SafetyValidator` class that detects unsafe DROP + CREATE patterns in migrations
   - Blocks migrations that would drop existing database objects (triggers/functions) and recreate them without validation

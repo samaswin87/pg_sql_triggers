@@ -6,7 +6,7 @@ module PgSqlTriggers
       include ActiveModel::Model
 
       attr_accessor :trigger_name, :table_name, :function_name,
-                    :version, :enabled, :condition,
+                    :version, :enabled, :condition, :timing,
                     :generate_function_stub, :events, :environments,
                     :function_body
 
@@ -23,6 +23,7 @@ module PgSqlTriggers
                                 }
       validates :version, presence: true, numericality: { only_integer: true, greater_than: 0 }
       validates :function_body, presence: true
+      validates :timing, inclusion: { in: %w[before after], message: "must be 'before' or 'after'" }
       validate :at_least_one_event
       validate :function_name_matches_body
 
@@ -38,6 +39,7 @@ module PgSqlTriggers
         @generate_function_stub = true if @generate_function_stub.nil?
         @events ||= []
         @environments ||= []
+        @timing ||= "before" # Default to "before" if not specified
       end
 
       def default_function_body
