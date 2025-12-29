@@ -339,6 +339,8 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
 
     it "handles errors when disabling trigger in database" do
       ActiveRecord::Base.connection.execute("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY)")
+      # Ensure registry is created before setting up the mock
+      registry # Force evaluation of let(:registry) before mock is set up
       allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(ActiveRecord::StatementInvalid.new("Error"))
       allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
       # rubocop:disable RSpec/AnyInstance
@@ -479,6 +481,8 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
 
     it "handles errors when enabling trigger in database" do
       ActiveRecord::Base.connection.execute("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY)")
+      # Ensure registry is created before setting up the mock
+      registry # Force evaluation of let(:registry) before mock is set up
       allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(ActiveRecord::StatementInvalid.new("Error"))
       allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
       # rubocop:disable RSpec/AnyInstance
