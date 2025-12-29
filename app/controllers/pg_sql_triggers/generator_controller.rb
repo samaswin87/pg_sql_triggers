@@ -104,7 +104,7 @@ module PgSqlTriggers
     def generator_params
       params.require(:pg_sql_triggers_generator_form).permit(
         :trigger_name, :table_name, :function_name, :version,
-        :enabled, :condition, :generate_function_stub, :function_body,
+        :enabled, :condition, :timing, :generate_function_stub, :function_body,
         events: [], environments: []
       )
     end
@@ -137,13 +137,52 @@ module PgSqlTriggers
       return nil if form.function_body.blank?
 
       # Create a temporary trigger registry object for validation
-      temp_registry = PgSqlTriggers::TriggerRegistry.new(
+      # Only include condition if the column exists
+      registry_attributes = {
         trigger_name: form.trigger_name,
+        table_name: form.table_name,
         function_body: form.function_body
-      )
+      }
+      # Only set condition if the column exists in the database
+      if PgSqlTriggers::TriggerRegistry.column_names.include?("condition")
+        registry_attributes[:condition] = form.condition
+      end
+
+      temp_registry = PgSqlTriggers::TriggerRegistry.new(registry_attributes)
+
+      # Build definition JSON for condition validation
+      definition = {
+        name: form.trigger_name,
+        table_name: form.table_name,
+        function_name: form.function_name,
+        events: form.events.compact_blank,
+        version: form.version,
+        enabled: form.enabled,
+        environments: form.environments.compact_blank,
+        condition: form.condition,
+        timing: form.timing || "before",
+        function_body: form.function_body
+      }
+      temp_registry.definition = definition.to_json
 
       validator = PgSqlTriggers::Testing::SyntaxValidator.new(temp_registry)
-      validator.validate_function_syntax
+
+      # Validate function syntax
+      function_result = validator.validate_function_syntax
+      return function_result unless function_result[:valid]
+
+      # Validate condition if present
+      if form.condition.present?
+        condition_result = validator.validate_condition
+        unless condition_result[:valid]
+          return {
+            valid: false,
+            error: "WHEN condition validation failed: #{condition_result[:error]}"
+          }
+        end
+      end
+
+      function_result
     rescue StandardError => e
       { valid: false, error: "Validation error: #{e.message}" }
     end

@@ -66,6 +66,11 @@ RSpec.describe PgSqlTriggers::Registry do
 end
 
 RSpec.describe PgSqlTriggers::Registry::Manager do
+  # Clear cache before each test to ensure test isolation
+  before do
+    described_class._clear_registry_cache
+  end
+
   describe ".register" do
     let(:definition) do
       definition = PgSqlTriggers::DSL::TriggerDefinition.new("test_trigger")
@@ -243,6 +248,259 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
     it "delegates to Drift.detect" do
       expect(PgSqlTriggers::Drift).to receive(:detect)
       described_class.diff
+    end
+  end
+
+  describe ".drifted" do
+    it "returns triggers with drifted state" do
+      allow(PgSqlTriggers::Drift::Detector).to receive(:detect_all).and_return([
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_DRIFTED, trigger_name: "drifted1" },
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_IN_SYNC, trigger_name: "in_sync1" },
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_DRIFTED, trigger_name: "drifted2" }
+                                                                               ])
+
+      result = described_class.drifted
+      expect(result.count).to eq(2)
+      expect(result.pluck(:trigger_name)).to contain_exactly("drifted1", "drifted2")
+    end
+  end
+
+  describe ".in_sync" do
+    it "returns triggers with in_sync state" do
+      allow(PgSqlTriggers::Drift::Detector).to receive(:detect_all).and_return([
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_IN_SYNC, trigger_name: "in_sync1" },
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_DRIFTED, trigger_name: "drifted1" },
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_IN_SYNC, trigger_name: "in_sync2" }
+                                                                               ])
+
+      result = described_class.in_sync
+      expect(result.count).to eq(2)
+      expect(result.pluck(:trigger_name)).to contain_exactly("in_sync1", "in_sync2")
+    end
+  end
+
+  describe ".unknown_triggers" do
+    it "returns triggers with unknown state" do
+      allow(PgSqlTriggers::Drift::Detector).to receive(:detect_all).and_return([
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_UNKNOWN, trigger_name: "unknown1" },
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_IN_SYNC, trigger_name: "in_sync1" },
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_UNKNOWN, trigger_name: "unknown2" }
+                                                                               ])
+
+      result = described_class.unknown_triggers
+      expect(result.count).to eq(2)
+      expect(result.pluck(:trigger_name)).to contain_exactly("unknown1", "unknown2")
+    end
+  end
+
+  describe ".dropped" do
+    it "returns triggers with dropped state" do
+      allow(PgSqlTriggers::Drift::Detector).to receive(:detect_all).and_return([
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_DROPPED, trigger_name: "dropped1" },
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_IN_SYNC, trigger_name: "in_sync1" },
+                                                                                 { state: PgSqlTriggers::DRIFT_STATE_DROPPED, trigger_name: "dropped2" }
+                                                                               ])
+
+      result = described_class.dropped
+      expect(result.count).to eq(2)
+      expect(result.pluck(:trigger_name)).to contain_exactly("dropped1", "dropped2")
+    end
+  end
+
+  describe "caching optimization" do
+    describe "._registry_cache" do
+      it "returns an empty hash initially" do
+        described_class._clear_registry_cache
+        expect(described_class._registry_cache).to eq({})
+      end
+
+      it "persists cached values across multiple calls" do
+        described_class._clear_registry_cache
+        cache = described_class._registry_cache
+        cache["test"] = "value"
+        expect(described_class._registry_cache["test"]).to eq("value")
+      end
+    end
+
+    describe "._clear_registry_cache" do
+      it "clears the registry cache" do
+        described_class._registry_cache["test"] = "value"
+        described_class._clear_registry_cache
+        expect(described_class._registry_cache).to eq({})
+      end
+    end
+
+    describe ".preload_triggers" do
+      before do
+        described_class._clear_registry_cache
+        PgSqlTriggers::TriggerRegistry.create!(
+          trigger_name: "trigger1",
+          table_name: "users",
+          version: 1,
+          enabled: true,
+          checksum: "abc",
+          source: "dsl"
+        )
+        PgSqlTriggers::TriggerRegistry.create!(
+          trigger_name: "trigger2",
+          table_name: "posts",
+          version: 1,
+          enabled: false,
+          checksum: "def",
+          source: "dsl"
+        )
+      end
+
+      it "loads triggers into cache" do
+        expect(described_class._registry_cache).to be_empty
+        described_class.preload_triggers(%w[trigger1 trigger2])
+        expect(described_class._registry_cache.keys).to contain_exactly("trigger1", "trigger2")
+        expect(described_class._registry_cache["trigger1"].trigger_name).to eq("trigger1")
+        expect(described_class._registry_cache["trigger2"].trigger_name).to eq("trigger2")
+      end
+
+      it "only loads uncached triggers" do
+        # Pre-populate cache with trigger1
+        described_class._registry_cache["trigger1"] = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "trigger1")
+
+        # Should only query for trigger2
+        expect(PgSqlTriggers::TriggerRegistry).to receive(:where).with(trigger_name: ["trigger2"]).and_call_original
+        described_class.preload_triggers(%w[trigger1 trigger2])
+      end
+
+      it "handles empty array" do
+        expect { described_class.preload_triggers([]) }.not_to raise_error
+        expect(described_class._registry_cache).to be_empty
+      end
+
+      it "handles triggers that don't exist" do
+        described_class.preload_triggers(%w[nonexistent_trigger])
+        expect(described_class._registry_cache).to be_empty
+      end
+    end
+
+    describe ".register with caching" do
+      let(:definition) do
+        definition = PgSqlTriggers::DSL::TriggerDefinition.new("cached_trigger")
+        definition.table(:users)
+        definition.on(:insert)
+        definition.function(:test_function)
+        definition.version(1)
+        definition.enabled(false)
+        definition
+      end
+
+      before do
+        described_class._clear_registry_cache
+      end
+
+      it "caches the lookup result" do
+        registry = described_class.register(definition)
+        expect(described_class._registry_cache["cached_trigger"]).to eq(registry)
+      end
+
+      it "uses cached value on subsequent lookups" do
+        # First registration
+        first_registry = described_class.register(definition)
+
+        # Clear the database query expectation
+        expect(PgSqlTriggers::TriggerRegistry).not_to receive(:find_by)
+
+        # Second registration should use cache
+        second_registry = described_class.register(definition)
+        expect(second_registry).to eq(first_registry)
+      end
+
+      it "updates the cache after updating an existing trigger" do
+        PgSqlTriggers::TriggerRegistry.create!(
+          trigger_name: "cached_trigger",
+          table_name: "users",
+          version: 1,
+          enabled: true,
+          checksum: "old",
+          source: "generated"
+        )
+
+        registry = described_class.register(definition)
+        expect(described_class._registry_cache["cached_trigger"]).to eq(registry)
+        expect(described_class._registry_cache["cached_trigger"].enabled).to be(false)
+      end
+
+      it "caches the newly created record" do
+        registry = described_class.register(definition)
+        expect(described_class._registry_cache["cached_trigger"]).to eq(registry)
+        expect(described_class._registry_cache["cached_trigger"]).to be_persisted
+      end
+    end
+
+    describe "N+1 query prevention" do
+      let(:definitions) do
+        [
+          PgSqlTriggers::DSL::TriggerDefinition.new("trigger1").tap do |d|
+            d.table(:users)
+            d.on(:insert)
+            d.function(:func1)
+            d.version(1)
+            d.enabled(false)
+          end,
+          PgSqlTriggers::DSL::TriggerDefinition.new("trigger2").tap do |d|
+            d.table(:posts)
+            d.on(:update)
+            d.function(:func2)
+            d.version(1)
+            d.enabled(false)
+          end,
+          PgSqlTriggers::DSL::TriggerDefinition.new("trigger3").tap do |d|
+            d.table(:comments)
+            d.on(:delete)
+            d.function(:func3)
+            d.version(1)
+            d.enabled(false)
+          end
+        ]
+      end
+
+      before do
+        described_class._clear_registry_cache
+      end
+
+      it "reduces queries when preloading triggers" do
+        # Create triggers first
+        PgSqlTriggers::TriggerRegistry.create!(
+          trigger_name: "trigger1",
+          table_name: "users",
+          version: 1,
+          enabled: false,
+          checksum: "abc",
+          source: "dsl"
+        )
+        PgSqlTriggers::TriggerRegistry.create!(
+          trigger_name: "trigger2",
+          table_name: "posts",
+          version: 1,
+          enabled: false,
+          checksum: "def",
+          source: "dsl"
+        )
+        PgSqlTriggers::TriggerRegistry.create!(
+          trigger_name: "trigger3",
+          table_name: "comments",
+          version: 1,
+          enabled: false,
+          checksum: "ghi",
+          source: "dsl"
+        )
+
+        # Preload all triggers - should make one query
+        expect(PgSqlTriggers::TriggerRegistry).to receive(:where).once.and_call_original
+        described_class.preload_triggers(%w[trigger1 trigger2 trigger3])
+
+        # Registering should use cache, not query again
+        expect(PgSqlTriggers::TriggerRegistry).not_to receive(:find_by)
+        definitions.each do |defn|
+          described_class.register(defn)
+        end
+      end
     end
   end
 end

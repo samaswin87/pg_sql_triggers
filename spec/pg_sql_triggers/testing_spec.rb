@@ -339,5 +339,84 @@ RSpec.describe PgSqlTriggers::Testing::FunctionTester do
       expect(tester.function_exists?).to be true
       ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS test_function()")
     end
+
+    it "returns false when definition is missing" do
+      registry.definition = nil
+      expect(tester.function_exists?).to be false
+    end
+
+    it "returns false when definition is invalid JSON" do
+      registry.definition = "invalid json"
+      expect(tester.function_exists?).to be false
+    end
+
+    it "returns false when function_name is missing from definition" do
+      registry.definition = {}.to_json
+      expect(tester.function_exists?).to be false
+    end
+
+    it "handles function_name as symbol in definition" do
+      registry.definition = { function_name: "test_function" }.to_json
+      ActiveRecord::Base.connection.execute(registry.function_body)
+      expect(tester.function_exists?).to be true
+      ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS test_function()")
+    end
+
+    it "handles name as function_name fallback" do
+      registry.definition = { name: "test_function" }.to_json
+      ActiveRecord::Base.connection.execute(registry.function_body)
+      expect(tester.function_exists?).to be true
+      ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS test_function()")
+    end
+  end
+
+  describe "#test_function_only edge cases" do
+    it "handles nil test_context" do
+      result = tester.test_function_only(test_context: nil)
+      expect(result[:function_created]).to be true
+      expect(result[:function_executed]).to be true
+    end
+
+    it "extracts function name from function_body with CREATE OR REPLACE" do
+      registry.function_body = "CREATE OR REPLACE FUNCTION my_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;"
+      result = tester.test_function_only(test_context: {})
+      expect(result[:function_created]).to be true
+    end
+
+    it "extracts function name from function_body with CREATE" do
+      registry.function_body = "CREATE FUNCTION my_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;"
+      result = tester.test_function_only(test_context: {})
+      expect(result[:function_created]).to be true
+    end
+
+    it "handles function_body without function name match" do
+      registry.function_body = "SELECT 1;"
+      result = tester.test_function_only(test_context: {})
+      expect(result[:function_created]).to be false
+      expect(result[:success]).to be false
+    end
+
+    it "handles missing function_body" do
+      registry.function_body = nil
+      result = tester.test_function_only(test_context: {})
+      expect(result[:function_created]).to be false
+      expect(result[:success]).to be false
+    end
+
+    it "handles errors during function creation gracefully" do
+      registry.function_body = "INVALID SQL SYNTAX"
+      result = tester.test_function_only
+      expect(result[:success]).to be false
+      expect(result[:errors]).not_to be_empty
+    end
+
+    it "handles errors during function verification gracefully" do
+      # Ensure registry is created before setting up the mock
+      registry # Force evaluation of let(:registry) before mock is set up
+      allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(StandardError.new("DB error"))
+      result = tester.test_function_only(test_context: {})
+      expect(result[:success]).to be false
+      expect(result[:errors]).not_to be_empty
+    end
   end
 end

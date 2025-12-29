@@ -26,6 +26,7 @@ PgSqlTriggers::DSL.pg_sql_trigger "users_email_validation" do
 
   version 1
   enabled false
+  timing :before
 
   when_env :production
 end
@@ -79,6 +80,14 @@ when_env :production           # Only in production
 when_env :staging, :production # Multiple environments
 ```
 
+#### `timing`
+Specifies when the trigger fires relative to the event (BEFORE or AFTER):
+
+```ruby
+timing :before  # Trigger fires before constraint checks (default)
+timing :after   # Trigger fires after constraint checks
+```
+
 ### Complete Example
 
 ```ruby
@@ -90,10 +99,74 @@ PgSqlTriggers::DSL.pg_sql_trigger "orders_billing_trigger" do
 
   version 2
   enabled true
+  timing :after
 
   when_env :production, :staging
 end
 ```
+
+## Trigger Generator
+
+PgSqlTriggers provides a web-based generator and Rails generators for creating trigger definitions and migrations quickly.
+
+### Web UI Generator
+
+The web UI generator provides a user-friendly interface for creating triggers:
+
+1. Navigate to `/pg_sql_triggers/generator/new` in your browser
+2. Fill in the trigger details:
+   - **Trigger Name**: Lowercase letters, numbers, and underscores only
+   - **Table Name**: The PostgreSQL table to attach the trigger to
+   - **Function Name**: The PostgreSQL function name (must match the function body)
+   - **Timing**: When the trigger fires - BEFORE (before constraint checks) or AFTER (after constraint checks)
+   - **Events**: Select one or more events (INSERT, UPDATE, DELETE, TRUNCATE)
+   - **Function Body**: The complete PostgreSQL function definition
+   - **Version**: Starting version number (default: 1)
+   - **Enabled**: Whether the trigger should be enabled initially
+   - **Environments**: Optional environment restrictions
+   - **Condition**: Optional WHEN condition for the trigger
+3. Preview the generated DSL and migration code (includes timing and condition display)
+4. Create the trigger files
+
+The generator creates:
+- A DSL definition file in `app/triggers/`
+- A migration file in `db/triggers/`
+- A registry entry in the database
+
+### Rails Generators
+
+You can also use Rails generators to create trigger migrations:
+
+```bash
+# Generate a trigger migration
+rails generate trigger:migration add_user_validation
+
+# Or using the full namespace
+rails generate pg_sql_triggers:trigger_migration add_user_validation
+```
+
+This creates a migration file in `db/triggers/` that you can edit to add your trigger logic.
+
+### Generator Features
+
+The generator handles:
+- **Function Name Formatting**: Automatically quotes function names with special characters
+- **Multiple Environments**: Supports multiple environment restrictions
+- **Condition Escaping**: Properly escapes quotes in WHEN conditions
+- **Event Combinations**: Handles single or multiple events (INSERT, UPDATE, DELETE, TRUNCATE)
+- **Migration Numbering**: Automatically generates sequential migration numbers
+- **Error Handling**: Graceful error handling with detailed error messages
+
+### Generator Edge Cases
+
+The generator properly handles:
+- Function names with special characters (quoted vs unquoted)
+- Multiple environments in a single trigger
+- Complex WHEN conditions with quotes
+- All event type combinations
+- Standalone gem usage (without Rails context)
+- Migration number collisions
+- Blank events and environments (filtered automatically)
 
 ## Trigger Migrations
 

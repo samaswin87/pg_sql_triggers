@@ -14,6 +14,7 @@ class CreatePgSqlTriggersTables < ActiveRecord::Migration[6.1]
       t.text :definition # Stored DSL or SQL definition
       t.text :function_body # The actual function body
       t.text :condition # Optional WHEN clause condition
+      t.string :timing, default: "before", null: false # Trigger timing: before or after
       t.datetime :installed_at
       t.datetime :last_verified_at
 
@@ -25,5 +26,6 @@ class CreatePgSqlTriggersTables < ActiveRecord::Migration[6.1]
     add_index :pg_sql_triggers_registry, :enabled
     add_index :pg_sql_triggers_registry, :source
     add_index :pg_sql_triggers_registry, :environment
+    add_index :pg_sql_triggers_registry, :timing
   end
 end

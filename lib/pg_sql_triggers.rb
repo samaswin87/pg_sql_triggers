@@ -9,6 +9,7 @@ module PgSqlTriggers
   class DriftError < Error; end
   class KillSwitchError < Error; end
   class ValidationError < Error; end
+  class UnsafeMigrationError < Error; end
 
   # Configuration
   mattr_accessor :kill_switch_enabled
@@ -34,6 +35,17 @@ module PgSqlTriggers
 
   mattr_accessor :excluded_tables
   self.excluded_tables = []
+
+  mattr_accessor :allow_unsafe_migrations
+  self.allow_unsafe_migrations = false
+
+  # Drift states
+  DRIFT_STATE_IN_SYNC = "in_sync"
+  DRIFT_STATE_DRIFTED = "drifted"
+  DRIFT_STATE_MANUAL_OVERRIDE = "manual_override"
+  DRIFT_STATE_DISABLED = "disabled"
+  DRIFT_STATE_DROPPED = "dropped"
+  DRIFT_STATE_UNKNOWN = "unknown"
 
   def self.configure
     yield self

@@ -9,17 +9,81 @@
   </ul>
 </div>
 
-<!-- DSL Preview -->
-<div style="margin-bottom: 2rem;">
-  <h3 style="display: flex; align-items: center; gap: 0.5rem;">
-    <span>DSL Definition</span>
-    <span class="badge badge-info">Ruby</span>
-  </h3>
-  <pre style="background: #f8f9fa; padding: 1rem; border-radius: 4px; overflow-x: auto; border: 1px solid #dee2e6;"><code><%= @dsl_content %></code></pre>
-</div>
-
 <!-- Actions -->
 <%= form_with url: generator_index_path, method: :post, scope: :pg_sql_triggers_generator_form, id: "generator-create-form" do |f| %>
+  <!-- DSL Preview -->
+  <div style="margin-bottom: 2rem;">
+    <h3 style="display: flex; align-items: center; gap: 0.5rem;">
+      <span>DSL Definition</span>
+      <span class="badge badge-info">Ruby</span>
+      <small style="color: #6c757d; font-weight: normal;">(Updates automatically when timing or condition changes)</small>
+    </h3>
+    <pre id="dsl-preview" style="background: #f8f9fa; padding: 1rem; border-radius: 4px; overflow-x: auto; border: 1px solid #dee2e6; min-height: 150px;"><code><%= @dsl_content %></code></pre>
+  </div>
+
+  <!-- Trigger Configuration Summary (Editable) -->
+  <div style="margin-bottom: 2rem; padding: 1.5rem; background: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6;">
+    <h3 style="margin-top: 0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+      <span>Trigger Configuration</span>
+      <small style="color: #6c757d; font-weight: normal;">(Editable - changes will update preview)</small>
+    </h3>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+      <!-- Timing Field -->
+      <div>
+        <%= f.label :timing, "Trigger Timing *", style: "display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;" %>
+        <%= f.select :timing,
+            options_for_select([["Before", "before"], ["After", "after"]], @form.timing || "before"),
+            {},
+            {
+              required: true,
+              id: "preview-timing-select",
+              style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; background: white; font-size: 0.875rem;",
+              onchange: "updatePreview()"
+            } %>
+        <small style="color: #6c757d; display: block; margin-top: 0.25rem;">
+          When the trigger should fire relative to the event
+        </small>
+      </div>
+
+      <!-- Read-only fields -->
+      <div>
+        <strong style="color: #495057; display: block; margin-bottom: 0.5rem;">Events:</strong>
+        <div style="padding: 0.5rem; background: white; border-radius: 4px; border: 1px solid #dee2e6;">
+          <span style="color: #495057; font-weight: 500;"><%= Array(@form.events).compact_blank.map(&:upcase).join(", ") %></span>
+        </div>
+      </div>
+
+      <div>
+        <strong style="color: #495057; display: block; margin-bottom: 0.5rem;">Table:</strong>
+        <div style="padding: 0.5rem; background: white; border-radius: 4px; border: 1px solid #dee2e6;">
+          <span style="color: #495057; font-weight: 500;"><%= @form.table_name %></span>
+        </div>
+      </div>
+
+      <div>
+        <strong style="color: #495057; display: block; margin-bottom: 0.5rem;">Function:</strong>
+        <div style="padding: 0.5rem; background: white; border-radius: 4px; border: 1px solid #dee2e6;">
+          <span style="color: #495057; font-weight: 500;"><%= @form.function_name %></span>
+        </div>
+      </div>
+
+      <!-- Condition Field (Editable) -->
+      <div style="grid-column: 1 / -1;">
+        <%= f.label :condition, "WHEN Condition (Optional)", style: "display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;" %>
+        <%= f.text_area :condition,
+            value: @form.condition,
+            placeholder: "e.g., NEW.email IS NOT NULL OR NEW.status = 'active'",
+            rows: 3,
+            id: "preview-condition-textarea",
+            style: "width: 100%; padding: 0.75rem; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace; font-size: 0.875rem; background: white; resize: vertical;",
+            oninput: "updatePreview()" %>
+        <small style="color: #6c757d; display: block; margin-top: 0.25rem;">
+          Optional SQL condition. Leave empty to fire on all rows. Changes update the DSL preview above.
+        </small>
+      </div>
+    </div>
+  </div>
   <!-- SQL Validation Result -->
   <% if @sql_validation %>
     <div style="margin-bottom: 2rem; padding: 1rem; border-radius: 4px; <%= @sql_validation[:valid] ? 'background: #d4edda; border-left: 4px solid #28a745;' : 'background: #f8d7da; border-left: 4px solid #dc3545;' %>">
@@ -59,7 +123,6 @@
   <%= f.hidden_field :function_name, value: @form.function_name %>
   <%= f.hidden_field :version, value: @form.version %>
   <%= f.hidden_field :enabled, value: @form.enabled %>
-  <%= f.hidden_field :condition, value: @form.condition %>
   <%= f.hidden_field :generate_function_stub, value: @form.generate_function_stub %>
   <% Array(@form.events).reject(&:blank?).each do |event| %>
     <%= hidden_field_tag "pg_sql_triggers_generator_form[events][]", event %>
@@ -83,3 +146,88 @@
            form_id: 'generator-create-form',
            title: 'Generate Trigger Files',
            message: 'This will create files on disk and register the trigger. Continue?' %>
+
+<script>
+(function() {
+  'use strict';
+
+  // Store the original DSL content
+  const originalDsl = <%= raw @dsl_content.to_json %>;
+
+  // Extract base DSL parts
+  const triggerName = '<%= @form.trigger_name %>';
+  const tableName = '<%= @form.table_name %>';
+  const functionName = '<%= @form.function_name %>';
+  const eventsList = '<%= Array(@form.events).compact_blank.map { |e| ":#{e}" }.join(", ") %>';
+  const version = <%= @form.version %>;
+  const enabled = <%= @form.enabled %>;
+  const environmentsList = '<%= @form.environments.compact_blank.map { |e| ":#{e}" }.join(", ") %>';
+  const functionRef = /^[a-z0-9_]+$/.test(functionName) ? `:${functionName}` : `"${functionName}"`;
+
+  function updatePreview() {
+    const timingSelect = document.getElementById('preview-timing-select');
+    const conditionTextarea = document.getElementById('preview-condition-textarea');
+    const dslPreview = document.getElementById('dsl-preview');
+
+    if (!timingSelect || !conditionTextarea || !dslPreview) return;
+
+    const timing = timingSelect.value || 'before';
+    const condition = conditionTextarea.value.trim();
+
+    // Build DSL content
+    const now = new Date();
+    const timestamp = now.toISOString().slice(0, 19).replace('T', ' ');
+
+    let dslContent = `# frozen_string_literal: true
+
+# Generated by pg_sql_triggers on ${timestamp}
+PgSqlTriggers::DSL.pg_sql_trigger "${triggerName}" do
+  table :${tableName}
+  on ${eventsList}
+  function ${functionRef}
+
+  version ${version}
+  enabled ${enabled}
+  timing :${timing}`;
+
+    if (environmentsList && environmentsList.length > 0) {
+      dslContent += `\n  when_env ${environmentsList}`;
+    }
+
+    if (condition) {
+      // Escape quotes in condition
+      const escapedCondition = condition.replace(/"/g, '\\"');
+      dslContent += `\n  when_condition "${escapedCondition}"`;
+    }
+
+    dslContent += `\nend\n`;
+
+    // Update the preview
+    const codeElement = dslPreview.querySelector('code');
+    if (codeElement) {
+      codeElement.textContent = dslContent;
+    }
+  }
+
+  // Initialize on DOM ready
+  document.addEventListener('DOMContentLoaded', function() {
+    const timingSelect = document.getElementById('preview-timing-select');
+    const conditionTextarea = document.getElementById('preview-condition-textarea');
+
+    if (timingSelect) {
+      timingSelect.addEventListener('change', updatePreview);
+    }
+
+    if (conditionTextarea) {
+      conditionTextarea.addEventListener('input', updatePreview);
+      // Also update on paste
+      conditionTextarea.addEventListener('paste', function() {
+        setTimeout(updatePreview, 10);
+      });
+    }
+
+    // Initial update
+    updatePreview();
+  });
+})();
+</script>

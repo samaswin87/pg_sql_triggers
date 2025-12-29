@@ -333,6 +333,7 @@ PgSqlTriggers::DSL.pg_sql_trigger "users_email_validation" do
   function :validate_user_email
   version 1
   enabled false
+  timing :before
   when_env :production
 end
 ```
@@ -414,6 +415,20 @@ when_env :production, :staging
 **Parameters**:
 - `environments` (Symbols): One or more environment names
 
+#### `timing(timing_value)`
+
+Specifies when the trigger fires relative to the event.
+
+```ruby
+timing :before  # Trigger fires before constraint checks (default)
+timing :after   # Trigger fires after constraint checks
+```
+
+**Parameters**:
+- `timing_value` (Symbol or String): Either `:before` or `:after`
+
+**Returns**: Current timing value if called without argument
+
 ## TriggerRegistry Model
 
 The `TriggerRegistry` ActiveRecord model represents a trigger in the registry.
@@ -428,10 +443,12 @@ trigger.table_name         # => "users"
 trigger.function_name      # => "validate_user_email"
 trigger.events             # => ["insert", "update"]
 trigger.version            # => 1
-trigger.enabled            # => false
-trigger.environments       # => ["production"]
-trigger.created_at         # => 2023-12-15 12:00:00 UTC
-trigger.updated_at         # => 2023-12-15 12:00:00 UTC
+trigger.enabled             # => false
+trigger.timing              # => "before" or "after"
+trigger.environments        # => ["production"]
+trigger.condition           # => "NEW.status = 'active'" or nil
+trigger.created_at          # => 2023-12-15 12:00:00 UTC
+trigger.updated_at          # => 2023-12-15 12:00:00 UTC
 ```
 
 ### Instance Methods
@@ -631,6 +648,7 @@ triggers.each do |trigger|
   puts "  Table: #{trigger.table_name}"
   puts "  Function: #{trigger.function_name}"
   puts "  Events: #{trigger.events.join(', ')}"
+  puts "  Timing: #{trigger.timing}"
   puts "  Version: #{trigger.version}"
   puts "  Enabled: #{trigger.enabled}"
   puts "  Drift: #{trigger.drift_status}"

@@ -5,6 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Trigger timing support (BEFORE/AFTER) in generator and registry
+  - Added `timing` field to generator form with "before" and "after" options
+  - Added `timing` column to `pg_sql_triggers_registry` table (defaults to "before")
+  - Timing is now included in DSL generation, migration generation, and registry storage
+  - Timing is included in checksum calculation for drift detection
+  - Preview page now displays trigger timing and condition information
+  - Comprehensive test coverage for both "before" and "after" timing scenarios
+- Enhanced preview page UI for better testing and editing
+  - Timing and condition fields are now editable directly in the preview page
+  - Real-time DSL preview updates when timing or condition changes
+  - Improved visual layout with clear distinction between editable and read-only fields
+  - Better user experience for testing different timing and condition combinations before generating files
+  - JavaScript-powered dynamic preview that updates automatically as you type
+
+### Performance
+- Optimized `Registry::Manager.register` to prevent N+1 queries when loading multiple trigger files
+  - Added request-level caching for registry lookups to avoid redundant database queries
+  - Added `preload_triggers` method for batch loading triggers into cache
+  - Cache is automatically populated during registration and can be manually cleared
+  - Significantly reduces database queries when multiple trigger files are loaded during request processing
+
+### Added
+- Safety validation for trigger migrations (prevents unsafe DROP + CREATE operations)
+  - `Migrator::SafetyValidator` class that detects unsafe DROP + CREATE patterns in migrations
+  - Blocks migrations that would drop existing database objects (triggers/functions) and recreate them without validation
+  - Only flags as unsafe if the object actually exists in the database
+  - Configuration option `allow_unsafe_migrations` (default: false) for global override
+  - Environment variable `ALLOW_UNSAFE_MIGRATIONS=true` for per-migration override
+  - Provides clear error messages explaining unsafe operations and how to proceed if override is needed
+  - New error class `PgSqlTriggers::UnsafeMigrationError` for safety validation failures
+- Pre-apply comparison for trigger migrations (diff expected vs actual)
+  - `Migrator::PreApplyComparator` class that extracts expected SQL from migrations and compares with database state
+  - `Migrator::PreApplyDiffReporter` class for formatting comparison results into human-readable diff reports
+  - Automatic pre-apply comparison before executing migrations to show what will change
+  - Comparison reports show new objects (will be created), modified objects (will be overwritten), and unchanged objects
+  - Detailed diff output for functions and triggers including expected vs actual SQL
+  - Summary output in verbose mode or when called from console
+  - Non-blocking: shows differences but doesn't prevent migration execution (warns only)
+- Complete drift detection system implementation
+  - `Drift::Detector` class with all 6 drift states (IN_SYNC, DRIFTED, DISABLED, DROPPED, UNKNOWN, MANUAL_OVERRIDE)
+  - `Drift::Reporter` class for formatting drift reports and summaries
+  - `Drift::DbQueries` helper module for PostgreSQL system catalog queries
+  - Dashboard integration: drift count now calculated from actual detection results
+  - Console API: `PgSqlTriggers::Registry.diff` now fully functional with drift detection
+  - Comprehensive test coverage for all drift detection components (>90% coverage)
+
+### Added
+- Comprehensive test coverage for generator components (>90% coverage)
+  - Added extensive test cases for `Generator::Service` covering all edge cases:
+    - Function name quoting (special characters vs simple patterns)
+    - Multiple environments handling
+    - Condition escaping with quotes
+    - Single and multiple event combinations
+    - All event types (insert, update, delete, truncate)
+    - Blank events and environments filtering
+    - Migration number generation edge cases (no existing migrations, timestamp collisions, multiple migrations)
+    - Standalone gem context (without Rails)
+    - Error handling and logging
+    - Checksum calculation with nil values
+  - Added test coverage for generator classes:
+    - `TriggerMigrationGenerator` - migration number generation, file naming, template usage
+    - `MigrationGenerator` (Trigger::Generators) - migration number generation, file naming, class name generation
+    - `InstallGenerator` - initializer creation, migration copying, route mounting, readme display
+
+### Fixed
+- Fixed checksum calculation consistency across all code paths (field-concatenation algorithm)
+- Fixed `Registry::Manager.diff` method to use drift detection
+- Fixed dashboard controller to display actual drifted trigger count
+- Fixed SQL parameter handling in `DbQueries.execute_query` method
+- Fixed generator service to properly handle function body whitespace stripping
+- Fixed generator service to handle standalone gem context (without Rails.root)
+
 ## [1.0.1] - 2025-12-28
 
 - Production kill switch for safety (blocks destructive operations in production by default)
