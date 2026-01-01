@@ -4,6 +4,8 @@ module PgSqlTriggers
   # Controller for managing trigger migrations via web UI
   # Provides actions to run migrations up, down, and redo
   class MigrationsController < ApplicationController
+    before_action :check_operator_permission
+
     def up
       # Check kill switch before running migration
       check_kill_switch(operation: :ui_migration_up, confirmation: params[:confirmation_text])
@@ -97,6 +99,14 @@ module PgSqlTriggers
       Rails.logger.error("Migration redo failed: #{e.message}\n#{e.backtrace.join("\n")}")
       flash[:error] = "Failed to redo migration: #{e.message}"
       redirect_to root_path
+    end
+
+    private
+
+    def check_operator_permission
+      return if PgSqlTriggers::Permissions.can?(current_actor, :apply_trigger)
+
+      redirect_to root_path, alert: "Insufficient permissions. Operator role required."
     end
   end
 end

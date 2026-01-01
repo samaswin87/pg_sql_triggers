@@ -492,4 +492,445 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
       expect(registry.reload.enabled).to be(true)
     end
   end
+
+  describe "#drop!" do
+    let(:registry) do
+      described_class.create!(
+        trigger_name: "test_trigger",
+        table_name: "test_table",
+        version: 1,
+        enabled: true,
+        checksum: "abc",
+        source: "dsl",
+        function_body: "CREATE TRIGGER test_trigger..."
+      )
+    end
+
+    let(:actor) { { type: "User", id: 1 } }
+
+    before do
+      # Stub kill switch by default
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      # Stub logger
+      allow(Rails.logger).to receive(:info)
+      allow(Rails.logger).to receive(:warn)
+      allow(Rails.logger).to receive(:error)
+    end
+
+    context "with valid reason and confirmation" do
+      it "drops the trigger from database" do
+        # Mock trigger exists check
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with("test_trigger").and_return(true)
+
+        # Expect DROP TRIGGER SQL
+        expect(ActiveRecord::Base.connection).to receive(:execute)
+          .with(/DROP TRIGGER IF EXISTS.*test_trigger.*ON.*test_table/i)
+
+        registry.drop!(reason: "No longer needed", actor: actor)
+      end
+
+      it "removes registry entry" do
+        expect do
+          registry.drop!(reason: "Cleanup", actor: actor)
+        end.to change(described_class, :count).by(-1)
+      end
+
+      it "executes in transaction" do
+        expect(ActiveRecord::Base).to receive(:transaction).and_call_original
+        registry.drop!(reason: "Testing", actor: actor)
+      end
+
+      it "logs drop attempt" do
+        expect(Rails.logger).to receive(:info).with(/TRIGGER_DROP.*Dropping/)
+        expect(Rails.logger).to receive(:info).with(/TRIGGER_DROP.*Reason/)
+        registry.drop!(reason: "Test reason", actor: actor)
+      end
+
+      it "logs successful drop" do
+        expect(Rails.logger).to receive(:info).with(/Successfully removed from registry/)
+        registry.drop!(reason: "Test", actor: actor)
+      end
+
+      it "accepts confirmation parameter" do
+        expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+          hash_including(confirmation: "DROP TRIGGER")
+        )
+        registry.drop!(reason: "Test", confirmation: "DROP TRIGGER", actor: actor)
+      end
+    end
+
+    context "when reason is missing" do
+      it "raises ArgumentError when reason is nil" do
+        expect do
+          registry.drop!(reason: nil, actor: actor)
+        end.to raise_error(ArgumentError, /Reason is required/)
+      end
+
+      it "raises ArgumentError when reason is empty string" do
+        expect do
+          registry.drop!(reason: "", actor: actor)
+        end.to raise_error(ArgumentError, /Reason is required/)
+      end
+
+      it "raises ArgumentError when reason is whitespace only" do
+        expect do
+          registry.drop!(reason: "   ", actor: actor)
+        end.to raise_error(ArgumentError, /Reason is required/)
+      end
+    end
+
+    context "when kill switch blocks operation" do
+      before do
+        allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!)
+          .and_raise(PgSqlTriggers::KillSwitchError.new("Kill switch active"))
+      end
+
+      it "raises KillSwitchError" do
+        expect do
+          registry.drop!(reason: "Test", actor: actor)
+        end.to raise_error(PgSqlTriggers::KillSwitchError)
+      end
+
+      it "does not drop trigger" do
+        expect do
+          registry.drop!(reason: "Test", actor: actor)
+        end.to raise_error(PgSqlTriggers::KillSwitchError)
+
+        expect(registry.reload).to be_present
+      end
+    end
+
+    context "when trigger does not exist in database" do
+      before do
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with("test_trigger").and_return(false)
+      end
+
+      it "still removes registry entry" do
+        expect do
+          registry.drop!(reason: "Cleanup", actor: actor)
+        end.to change(described_class, :count).by(-1)
+      end
+
+      it "does not attempt to drop trigger from database" do
+        expect(ActiveRecord::Base.connection).not_to receive(:execute).with(/DROP TRIGGER/)
+        registry.drop!(reason: "Cleanup", actor: actor)
+      end
+    end
+
+    context "when DROP TRIGGER fails" do
+      before do
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with("test_trigger").and_return(true)
+
+        allow(ActiveRecord::Base.connection).to receive(:execute)
+          .with(/DROP TRIGGER/)
+          .and_raise(ActiveRecord::StatementInvalid.new("SQL error"))
+      end
+
+      it "raises error and rolls back transaction" do
+        expect do
+          registry.drop!(reason: "Test", actor: actor)
+        end.to raise_error(ActiveRecord::StatementInvalid)
+
+        expect(registry.reload).to be_present
+      end
+
+      it "logs the error" do
+        expect(Rails.logger).to receive(:error).with(/TRIGGER_DROP.*Failed/)
+
+        expect do
+          registry.drop!(reason: "Test", actor: actor)
+        end.to raise_error(ActiveRecord::StatementInvalid)
+      end
+    end
+
+    context "with kill switch check" do
+      it "checks kill switch before dropping" do
+        expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+          operation: :trigger_drop,
+          environment: Rails.env,
+          confirmation: nil,
+          actor: actor
+        )
+        registry.drop!(reason: "Test", actor: actor)
+      end
+
+      it "uses default actor if not provided" do
+        expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+          hash_including(actor: { type: "Console", id: "TriggerRegistry#drop!" })
+        )
+        registry.drop!(reason: "Test")
+      end
+    end
+  end
+
+  describe "#re_execute!" do
+    let(:registry) do
+      described_class.create!(
+        trigger_name: "test_trigger",
+        table_name: "test_table",
+        version: 1,
+        enabled: true,
+        checksum: "abc",
+        source: "dsl",
+        function_body: "CREATE TRIGGER test_trigger BEFORE INSERT ON test_table FOR EACH ROW EXECUTE FUNCTION test_function();"
+      )
+    end
+
+    let(:actor) { { type: "User", id: 1 } }
+
+    before do
+      # Stub kill switch by default
+      allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+      # Stub logger
+      allow(Rails.logger).to receive(:info)
+      allow(Rails.logger).to receive(:warn)
+      allow(Rails.logger).to receive(:error)
+      # Stub drift detection
+      allow(registry).to receive(:drift_result).and_return({ state: :drifted })
+    end
+
+    context "with valid reason and confirmation" do
+      before do
+        # Mock DatabaseIntrospection
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with("test_trigger").and_return(true)
+      end
+
+      it "drops existing trigger" do
+        expect(ActiveRecord::Base.connection).to receive(:execute)
+          .with(/DROP TRIGGER IF EXISTS.*test_trigger.*ON.*test_table/i)
+          .ordered
+
+        expect(ActiveRecord::Base.connection).to receive(:execute)
+          .with(/CREATE TRIGGER/)
+          .ordered
+
+        registry.re_execute!(reason: "Fix drift", actor: actor)
+      end
+
+      it "recreates trigger with stored function_body" do
+        expect(ActiveRecord::Base.connection).to receive(:execute)
+          .with(registry.function_body)
+
+        registry.re_execute!(reason: "Fix drift", actor: actor)
+      end
+
+      it "updates registry after re-execution" do
+        freeze_time do
+          registry.re_execute!(reason: "Fix drift", actor: actor)
+
+          expect(registry.reload.enabled).to be true
+          expect(registry.last_executed_at).to be_within(1.second).of(Time.current)
+        end
+      end
+
+      it "executes in transaction" do
+        expect(ActiveRecord::Base).to receive(:transaction).and_call_original
+        registry.re_execute!(reason: "Fix drift", actor: actor)
+      end
+
+      it "logs re-execute attempt" do
+        expect(Rails.logger).to receive(:info).with(/TRIGGER_RE_EXECUTE.*Re-executing/)
+        expect(Rails.logger).to receive(:info).with(/TRIGGER_RE_EXECUTE.*Reason/)
+        registry.re_execute!(reason: "Fix drift", actor: actor)
+      end
+
+      it "logs drift state" do
+        expect(Rails.logger).to receive(:info).with(/Current state/)
+        registry.re_execute!(reason: "Fix drift", actor: actor)
+      end
+
+      it "accepts confirmation parameter" do
+        expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+          hash_including(confirmation: "RE-EXECUTE")
+        )
+        registry.re_execute!(reason: "Fix drift", confirmation: "RE-EXECUTE", actor: actor)
+      end
+    end
+
+    context "when reason is missing" do
+      it "raises ArgumentError when reason is nil" do
+        expect do
+          registry.re_execute!(reason: nil, actor: actor)
+        end.to raise_error(ArgumentError, /Reason is required/)
+      end
+
+      it "raises ArgumentError when reason is empty string" do
+        expect do
+          registry.re_execute!(reason: "", actor: actor)
+        end.to raise_error(ArgumentError, /Reason is required/)
+      end
+
+      it "raises ArgumentError when reason is whitespace only" do
+        expect do
+          registry.re_execute!(reason: "   ", actor: actor)
+        end.to raise_error(ArgumentError, /Reason is required/)
+      end
+    end
+
+    context "when function_body is missing" do
+      before do
+        # rubocop:disable Rails/SkipsModelValidations
+        registry.update_column(:function_body, nil)
+        # rubocop:enable Rails/SkipsModelValidations
+      end
+
+      it "raises StandardError" do
+        expect do
+          registry.re_execute!(reason: "Fix", actor: actor)
+        end.to raise_error(StandardError, /Cannot re-execute.*missing function_body/)
+      end
+    end
+
+    context "when function_body is blank" do
+      before do
+        # rubocop:disable Rails/SkipsModelValidations
+        registry.update_column(:function_body, "")
+        # rubocop:enable Rails/SkipsModelValidations
+      end
+
+      it "raises StandardError" do
+        expect do
+          registry.re_execute!(reason: "Fix", actor: actor)
+        end.to raise_error(StandardError, /Cannot re-execute.*missing function_body/)
+      end
+    end
+
+    context "when kill switch blocks operation" do
+      before do
+        allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!)
+          .and_raise(PgSqlTriggers::KillSwitchError.new("Kill switch active"))
+      end
+
+      it "raises KillSwitchError" do
+        expect do
+          registry.re_execute!(reason: "Fix", actor: actor)
+        end.to raise_error(PgSqlTriggers::KillSwitchError)
+      end
+
+      it "does not re-execute trigger" do
+        expect(ActiveRecord::Base.connection).not_to receive(:execute)
+
+        expect do
+          registry.re_execute!(reason: "Fix", actor: actor)
+        end.to raise_error(PgSqlTriggers::KillSwitchError)
+      end
+    end
+
+    context "when trigger does not exist in database" do
+      before do
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with("test_trigger").and_return(false)
+      end
+
+      it "still recreates trigger" do
+        expect(ActiveRecord::Base.connection).to receive(:execute)
+          .with(registry.function_body)
+
+        registry.re_execute!(reason: "Recreate", actor: actor)
+      end
+
+      it "does not attempt to drop non-existent trigger" do
+        expect(ActiveRecord::Base.connection).not_to receive(:execute)
+          .with(/DROP TRIGGER/)
+
+        registry.re_execute!(reason: "Recreate", actor: actor)
+      end
+    end
+
+    context "when trigger recreation fails" do
+      before do
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with("test_trigger").and_return(false)
+
+        allow(ActiveRecord::Base.connection).to receive(:execute)
+          .with(registry.function_body)
+          .and_raise(ActiveRecord::StatementInvalid.new("SQL error"))
+      end
+
+      it "raises error and rolls back transaction" do
+        original_enabled = registry.enabled
+
+        expect do
+          registry.re_execute!(reason: "Fix", actor: actor)
+        end.to raise_error(ActiveRecord::StatementInvalid)
+
+        expect(registry.reload.enabled).to eq(original_enabled)
+      end
+
+      it "logs the error" do
+        expect(Rails.logger).to receive(:error).with(/TRIGGER_RE_EXECUTE.*Failed/)
+
+        expect do
+          registry.re_execute!(reason: "Fix", actor: actor)
+        end.to raise_error(ActiveRecord::StatementInvalid)
+      end
+    end
+
+    context "with kill switch check" do
+      it "checks kill switch before re-executing" do
+        expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+          operation: :trigger_re_execute,
+          environment: Rails.env,
+          confirmation: nil,
+          actor: actor
+        )
+        registry.re_execute!(reason: "Fix", actor: actor)
+      end
+
+      it "uses default actor if not provided" do
+        expect(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).with(
+          hash_including(actor: { type: "Console", id: "TriggerRegistry#re_execute!" })
+        )
+        registry.re_execute!(reason: "Fix")
+      end
+    end
+
+    context "with logging" do
+      it "logs successful drop" do
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with("test_trigger").and_return(true)
+
+        expect(Rails.logger).to receive(:info).with(/Dropped existing/)
+        registry.re_execute!(reason: "Fix", actor: actor)
+      end
+
+      it "logs successful recreation" do
+        expect(Rails.logger).to receive(:info).with(/Re-created trigger/)
+        registry.re_execute!(reason: "Fix", actor: actor)
+      end
+
+      it "logs registry update" do
+        expect(Rails.logger).to receive(:info).with(/Updated registry/)
+        registry.re_execute!(reason: "Fix", actor: actor)
+      end
+
+      it "warns when drop fails but continues" do
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with("test_trigger").and_return(true)
+        allow(ActiveRecord::Base.connection).to receive(:execute)
+          .with(/DROP TRIGGER/)
+          .and_raise(StandardError.new("Drop failed"))
+
+        expect(Rails.logger).to receive(:warn).with(/Drop failed/)
+
+        # Should still attempt to recreate
+        expect(ActiveRecord::Base.connection).to receive(:execute)
+          .with(registry.function_body)
+
+        registry.re_execute!(reason: "Fix", actor: actor)
+      end
+    end
+  end
 end

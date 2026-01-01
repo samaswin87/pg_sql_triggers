@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 module PgSqlTriggers
+  # rubocop:disable Metrics/ClassLength
   class TriggerRegistry < PgSqlTriggers::ApplicationRecord
     self.table_name = "pg_sql_triggers_registry"
 
@@ -150,6 +151,51 @@ module PgSqlTriggers
       end
     end
 
+    def drop!(reason:, confirmation: nil, actor: nil)
+      # Check kill switch before dropping trigger
+      PgSqlTriggers::SQL::KillSwitch.check!(
+        operation: :trigger_drop,
+        environment: Rails.env,
+        confirmation: confirmation,
+        actor: actor || { type: "Console", id: "TriggerRegistry#drop!" }
+      )
+
+      # Validate reason is provided
+      raise ArgumentError, "Reason is required" if reason.nil? || reason.to_s.strip.empty?
+
+      log_drop_attempt(reason)
+
+      # Execute DROP TRIGGER in transaction
+      ActiveRecord::Base.transaction do
+        drop_trigger_from_database
+        destroy!
+        log_drop_success
+      end
+    end
+
+    def re_execute!(reason:, confirmation: nil, actor: nil)
+      # Check kill switch before re-executing trigger
+      PgSqlTriggers::SQL::KillSwitch.check!(
+        operation: :trigger_re_execute,
+        environment: Rails.env,
+        confirmation: confirmation,
+        actor: actor || { type: "Console", id: "TriggerRegistry#re_execute!" }
+      )
+
+      # Validate reason is provided
+      raise ArgumentError, "Reason is required" if reason.nil? || reason.to_s.strip.empty?
+      raise StandardError, "Cannot re-execute: missing function_body" if function_body.blank?
+
+      log_re_execute_attempt(reason)
+
+      # Execute the trigger creation/update in transaction
+      ActiveRecord::Base.transaction do
+        drop_existing_trigger_for_re_execute
+        recreate_trigger
+        update_registry_after_re_execute
+      end
+    end
+
     private
 
     def quote_identifier(identifier)
@@ -170,5 +216,82 @@ module PgSqlTriggers
     def verify!
       update!(last_verified_at: Time.current)
     end
+
+    # Drop trigger helpers
+    def log_drop_attempt(reason)
+      return unless defined?(Rails.logger)
+
+      Rails.logger.info "[TRIGGER_DROP] Dropping: #{trigger_name} on #{table_name}"
+      Rails.logger.info "[TRIGGER_DROP] Reason: #{reason}"
+    end
+
+    def log_drop_success
+      return unless defined?(Rails.logger)
+
+      Rails.logger.info "[TRIGGER_DROP] Successfully removed from registry"
+    end
+
+    def drop_trigger_from_database
+      trigger_exists = check_trigger_exists
+      return unless trigger_exists
+
+      execute_drop_sql
+    end
+
+    def check_trigger_exists
+      introspection = PgSqlTriggers::DatabaseIntrospection.new
+      introspection.trigger_exists?(trigger_name)
+    rescue StandardError => e
+      Rails.logger.warn("Could not check trigger existence: #{e.message}") if defined?(Rails.logger)
+      false
+    end
+
+    def execute_drop_sql
+      quoted_table = quote_identifier(table_name)
+      quoted_trigger = quote_identifier(trigger_name)
+      sql = "DROP TRIGGER IF EXISTS #{quoted_trigger} ON #{quoted_table};"
+      ActiveRecord::Base.connection.execute(sql)
+      Rails.logger.info "[TRIGGER_DROP] Dropped from database" if defined?(Rails.logger)
+    rescue ActiveRecord::StatementInvalid, StandardError => e
+      Rails.logger.error("[TRIGGER_DROP] Failed: #{e.message}") if defined?(Rails.logger)
+      raise
+    end
+
+    # Re-execute trigger helpers
+    def log_re_execute_attempt(reason)
+      return unless defined?(Rails.logger)
+
+      Rails.logger.info "[TRIGGER_RE_EXECUTE] Re-executing: #{trigger_name} on #{table_name}"
+      Rails.logger.info "[TRIGGER_RE_EXECUTE] Reason: #{reason}"
+      drift = drift_result
+      Rails.logger.info "[TRIGGER_RE_EXECUTE] Current state: #{drift[:state]}"
+    end
+
+    def drop_existing_trigger_for_re_execute
+      introspection = PgSqlTriggers::DatabaseIntrospection.new
+      return unless introspection.trigger_exists?(trigger_name)
+
+      quoted_table = quote_identifier(table_name)
+      quoted_trigger = quote_identifier(trigger_name)
+      drop_sql = "DROP TRIGGER IF EXISTS #{quoted_trigger} ON #{quoted_table};"
+      ActiveRecord::Base.connection.execute(drop_sql)
+      Rails.logger.info "[TRIGGER_RE_EXECUTE] Dropped existing" if defined?(Rails.logger)
+    rescue StandardError => e
+      Rails.logger.warn("[TRIGGER_RE_EXECUTE] Drop failed: #{e.message}") if defined?(Rails.logger)
+    end
+
+    def recreate_trigger
+      ActiveRecord::Base.connection.execute(function_body)
+      Rails.logger.info "[TRIGGER_RE_EXECUTE] Re-created trigger" if defined?(Rails.logger)
+    rescue ActiveRecord::StatementInvalid, StandardError => e
+      Rails.logger.error("[TRIGGER_RE_EXECUTE] Failed: #{e.message}") if defined?(Rails.logger)
+      raise
+    end
+
+    def update_registry_after_re_execute
+      update!(enabled: true, last_executed_at: Time.current)
+      Rails.logger.info "[TRIGGER_RE_EXECUTE] Updated registry" if defined?(Rails.logger)
+    end
   end
+  # rubocop:enable Metrics/ClassLength
 end

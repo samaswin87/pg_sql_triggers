@@ -2,6 +2,8 @@
 
 module PgSqlTriggers
   class DashboardController < ApplicationController
+    before_action :check_viewer_permission
+
     def index
       @triggers = PgSqlTriggers::TriggerRegistry.order(created_at: :desc)
 
@@ -40,6 +42,14 @@ module PgSqlTriggers
         @page = 1
         @per_page = 20
       end
+    end
+
+    private
+
+    def check_viewer_permission
+      return if PgSqlTriggers::Permissions.can?(current_actor, :view_triggers)
+
+      redirect_to root_path, alert: "Insufficient permissions. Viewer role required."
     end
   end
 end

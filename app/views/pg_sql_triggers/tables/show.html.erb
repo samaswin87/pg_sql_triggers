@@ -46,8 +46,8 @@
         <div style="border: 1px solid #dee2e6; border-radius: 4px; padding: 1rem; background: #f8f9fa;">
           <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
             <div>
-              <h4 style="margin: 0; color: #007bff;">
-                <%= trigger.trigger_name %>
+              <h4 style="margin: 0;">
+                <%= link_to trigger.trigger_name, trigger_path(trigger), style: "color: #007bff; text-decoration: none;" %>
                 <% if trigger.enabled %>
                   <span class="badge badge-success">Enabled</span>
                 <% else %>
@@ -63,6 +63,40 @@
               </p>
             </div>
           </div>
+
+          <% if PgSqlTriggers::Permissions.can?(current_actor, :enable_trigger) %>
+            <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem;">
+              <% if trigger.enabled %>
+                <% form_id = "table-trigger-disable-#{trigger.id}-form" %>
+                <%= form_with url: disable_trigger_path(trigger), method: :post, local: true, id: form_id, style: "margin: 0;" do |f| %>
+                  <%= f.hidden_field :redirect_to, value: table_path(@table_info[:table_name]) %>
+                  <button type="button" onclick="showKillSwitchModal('<%= form_id %>')"
+                      style="padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; font-weight: 600;">
+                    Disable Trigger
+                  </button>
+                <% end %>
+                <%= render 'pg_sql_triggers/shared/confirmation_modal',
+                           operation: :ui_trigger_disable,
+                           form_id: form_id,
+                           title: 'Disable Trigger',
+                           message: "Are you sure you want to disable trigger '#{trigger.trigger_name}' on table '#{@table_info[:table_name]}'?" %>
+              <% else %>
+                <% form_id = "table-trigger-enable-#{trigger.id}-form" %>
+                <%= form_with url: enable_trigger_path(trigger), method: :post, local: true, id: form_id, style: "margin: 0;" do |f| %>
+                  <%= f.hidden_field :redirect_to, value: table_path(@table_info[:table_name]) %>
+                  <button type="button" onclick="showKillSwitchModal('<%= form_id %>')"
+                      style="padding: 0.5rem 1rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; font-weight: 600;">
+                    Enable Trigger
+                  </button>
+                <% end %>
+                <%= render 'pg_sql_triggers/shared/confirmation_modal',
+                           operation: :ui_trigger_enable,
+                           form_id: form_id,
+                           title: 'Enable Trigger',
+                           message: "Are you sure you want to enable trigger '#{trigger.trigger_name}' on table '#{@table_info[:table_name]}'?" %>
+              <% end %>
+            </div>
+          <% end %>
 
           <% if trigger.definition.present? %>
             <% definition = JSON.parse(trigger.definition) rescue {} %>

@@ -1,0 +1,128 @@
+<% form_id = "trigger-drop-#{trigger.id}-form" %>
+
+<%= form_with url: drop_trigger_path(trigger), method: :post, local: true, id: form_id, style: "margin: 0; display: inline-block;" do |f| %>
+  <%= f.hidden_field :redirect_to, value: params[:redirect_to] || trigger_path(trigger) %>
+
+  <button type="button" onclick="showDropModal('<%= form_id %>')"
+      style="padding: 0.75rem 1.5rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; font-weight: 600;">
+    Drop Trigger
+  </button>
+<% end %>
+
+<!-- Drop Modal -->
+<div id="<%= form_id %>-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
+  <div style="background-color: #fefefe; margin: 5% auto; padding: 0; border-radius: 8px; width: 90%; max-width: 600px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <!-- Header -->
+    <div style="background: #dc3545; color: white; padding: 1.5rem; border-radius: 8px 8px 0 0;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0;">⚠️ Drop Trigger</h3>
+        <button type="button" onclick="closeDropModal('<%= form_id %>')"
+            style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; padding: 0; width: 30px; height: 30px;">
+          &times;
+        </button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 1.5rem;">
+      <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 1rem; margin-bottom: 1.5rem;">
+        <strong style="color: #856404;">Warning:</strong>
+        <p style="margin: 0.5rem 0 0 0; color: #856404;">
+          This will permanently drop trigger '<strong><%= trigger.trigger_name %></strong>' from the database and remove it from the registry.
+          This action cannot be undone.
+        </p>
+      </div>
+
+      <form id="<%= form_id %>-reason-form">
+        <div style="margin-bottom: 1rem;">
+          <label for="<%= form_id %>-reason" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+            Reason <span style="color: #dc3545;">*</span>
+          </label>
+          <textarea id="<%= form_id %>-reason" name="reason" required rows="3"
+              placeholder="Why are you dropping this trigger? This will be logged."
+              style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; font-family: inherit;"></textarea>
+        </div>
+
+        <% if kill_switch_active? %>
+          <div style="margin-bottom: 1rem;">
+            <label for="<%= form_id %>-confirmation" style="display: block; font-weight: 600; margin-bottom: 0.5rem;">
+              Confirmation Text <span style="color: #dc3545;">*</span>
+            </label>
+            <input type="text" id="<%= form_id %>-confirmation" name="confirmation_text" required
+                placeholder="<%= expected_confirmation_text(:trigger_drop) %>"
+                style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; font-family: 'Monaco', 'Menlo', monospace;">
+            <small style="color: #6c757d; display: block; margin-top: 0.25rem;">
+              Type: <code><%= expected_confirmation_text(:trigger_drop) %></code>
+            </small>
+          </div>
+        <% end %>
+
+        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+          <button type="button" onclick="closeDropModal('<%= form_id %>')"
+              style="padding: 0.75rem 1.5rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Cancel
+          </button>
+          <button type="button" onclick="submitDrop('<%= form_id %>')"
+              style="padding: 0.75rem 1.5rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+            Drop Trigger
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function showDropModal(formId) {
+  document.getElementById(formId + '-modal').style.display = 'block';
+}
+
+function closeDropModal(formId) {
+  document.getElementById(formId + '-modal').style.display = 'none';
+}
+
+function submitDrop(formId) {
+  const form = document.getElementById(formId);
+  const reasonForm = document.getElementById(formId + '-reason-form');
+  const reason = document.getElementById(formId + '-reason').value;
+
+  if (!reason.trim()) {
+    alert('Please provide a reason for dropping this trigger.');
+    return;
+  }
+
+  <% if kill_switch_active? %>
+    const confirmation = document.getElementById(formId + '-confirmation').value;
+    if (!confirmation.trim()) {
+      alert('Please provide the confirmation text.');
+      return;
+    }
+
+    // Add confirmation to main form
+    const confirmationInput = document.createElement('input');
+    confirmationInput.type = 'hidden';
+    confirmationInput.name = 'confirmation_text';
+    confirmationInput.value = confirmation;
+    form.appendChild(confirmationInput);
+  <% end %>
+
+  // Add reason to main form
+  const reasonInput = document.createElement('input');
+  reasonInput.type = 'hidden';
+  reasonInput.name = 'reason';
+  reasonInput.value = reason;
+  form.appendChild(reasonInput);
+
+  form.submit();
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+  const modals = document.querySelectorAll('[id$="-modal"]');
+  modals.forEach(modal => {
+    if (event.target == modal) {
+      modal.style.display = 'none';
+    }
+  });
+}
+</script>
