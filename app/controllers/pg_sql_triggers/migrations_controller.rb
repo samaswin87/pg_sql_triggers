@@ -76,7 +76,44 @@ module PgSqlTriggers
       PgSqlTriggers::Migrator.ensure_migrations_table!
 
       if target_version
-        PgSqlTriggers::Migrator.run_down(target_version)
+        current_version = PgSqlTriggers::Migrator.current_version
+        if current_version.zero?
+          flash[:warning] = "No migrations to redo."
+          redirect_to root_path
+          return
+        end
+
+        # For redo, we need to rollback the specific migration and re-apply it
+        # If target_version is the current version, rollback the last migration
+        # Otherwise, rollback to one version before target, then run up to target
+        if current_version == target_version
+          # Rollback the last migration (which is the target)
+          PgSqlTriggers::Migrator.run_down
+        elsif current_version > target_version
+          # Rollback to one version before target (this will rollback target_version too)
+          # Find the migration just before target_version
+          all_migrations = PgSqlTriggers::Migrator.migrations.sort_by(&:version)
+          prev_migration = all_migrations.find { |m| m.version < target_version }
+          if prev_migration
+            # Rollback to the previous migration (this rolls back target_version)
+            PgSqlTriggers::Migrator.run_down(prev_migration.version)
+          else
+            # No previous migration, target_version is the first migration
+            # Rollback all migrations until we're below target_version
+            while PgSqlTriggers::Migrator.current_version >= target_version
+              PgSqlTriggers::Migrator.run_down
+              break if PgSqlTriggers::Migrator.current_version.zero?
+            end
+          end
+        else
+          # Target version is not applied yet, just run it up
+          PgSqlTriggers::Migrator.run_up(target_version)
+          flash[:success] = "Migration #{target_version} redone successfully."
+          redirect_to root_path
+          return
+        end
+
+        # Now run up to the target version
         PgSqlTriggers::Migrator.run_up(target_version)
         flash[:success] = "Migration #{target_version} redone successfully."
       else
