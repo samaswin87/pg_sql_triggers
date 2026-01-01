@@ -179,9 +179,44 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
   end
 
   describe ".diff" do
-    it "delegates to Drift.detect" do
-      expect(PgSqlTriggers::Drift).to receive(:detect)
-      described_class.diff
+    it "calls real drift detection and returns results" do
+      # Create a real trigger in the database to test drift detection
+      create_users_table
+      trigger_name = "test_diff_trigger"
+      function_name = "test_diff_function"
+      function_body = "CREATE OR REPLACE FUNCTION #{function_name}() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;"
+
+      # Create registry entry
+      registry = PgSqlTriggers::TriggerRegistry.create!(
+        trigger_name: trigger_name,
+        table_name: "users",
+        version: 1,
+        enabled: true,
+        source: "dsl",
+        checksum: "test_checksum",
+        definition: {}.to_json,
+        function_body: function_body
+      )
+
+      # Create real trigger in database
+      ActiveRecord::Base.connection.execute(function_body)
+      ActiveRecord::Base.connection.execute(<<~SQL)
+        CREATE TRIGGER #{trigger_name} BEFORE INSERT ON users FOR EACH ROW EXECUTE FUNCTION #{function_name}();
+      SQL
+
+      # Call real drift detection
+      result = described_class.diff
+
+      # Verify it returns an array of drift results
+      expect(result).to be_an(Array)
+      expect(result).not_to be_empty
+      expect(result.first).to be_a(Hash)
+      expect(result.first).to have_key(:state)
+    ensure
+      ActiveRecord::Base.connection.execute("DROP TRIGGER IF EXISTS #{trigger_name} ON users")
+      ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS #{function_name}()")
+      drop_test_table(:users)
+      PgSqlTriggers::TriggerRegistry.where(trigger_name: trigger_name).destroy_all
     end
   end
 
@@ -282,9 +317,19 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
         # Pre-populate cache with trigger1
         described_class._registry_cache["trigger1"] = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "trigger1")
 
-        # Should only query for trigger2
-        expect(PgSqlTriggers::TriggerRegistry).to receive(:where).with(trigger_name: ["trigger2"]).and_call_original
+        # Count queries to pg_sql_triggers_registry table
+        query_count = 0
+        subscription = ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, _start, _finish, _id, payload|
+          query_count += 1 if payload[:sql].include?("pg_sql_triggers_registry") && payload[:sql].include?("WHERE")
+        end
+
+        # Should only query for trigger2 (one WHERE query)
         described_class.preload_triggers(%w[trigger1 trigger2])
+
+        # Verify only one query was made (for trigger2)
+        expect(query_count).to eq(1)
+      ensure
+        ActiveSupport::Notifications.unsubscribe(subscription) if subscription
       end
 
       it "handles empty array" do
@@ -322,12 +367,20 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
         # First registration
         first_registry = described_class.register(definition)
 
-        # Clear the database query expectation
-        expect(PgSqlTriggers::TriggerRegistry).not_to receive(:find_by)
+        # Count find_by queries to pg_sql_triggers_registry table
+        find_by_query_count = 0
+        subscription = ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, _start, _finish, _id, payload|
+          if payload[:sql].include?("pg_sql_triggers_registry") && payload[:sql].include?("trigger_name") && payload[:sql].include?("LIMIT")
+            find_by_query_count += 1
+          end
+        end
 
-        # Second registration should use cache
+        # Second registration should use cache (no find_by query)
         second_registry = described_class.register(definition)
         expect(second_registry).to eq(first_registry)
+        expect(find_by_query_count).to eq(0)
+      ensure
+        ActiveSupport::Notifications.unsubscribe(subscription) if subscription
       end
 
       it "updates the cache after updating an existing trigger" do
@@ -407,15 +460,34 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
           source: "dsl"
         )
 
-        # Preload all triggers - should make one query
-        expect(PgSqlTriggers::TriggerRegistry).to receive(:where).once.and_call_original
-        described_class.preload_triggers(%w[trigger1 trigger2 trigger3])
+        # Count SELECT queries to pg_sql_triggers_registry table
+        select_query_count = 0
+        find_by_query_count = 0
+        subscription = ActiveSupport::Notifications.subscribe("sql.active_record") do |_name, _start, _finish, _id, payload|
+          sql = payload[:sql]
+          if sql.include?("pg_sql_triggers_registry") && sql.match?(/SELECT.*FROM.*pg_sql_triggers_registry/i)
+            # Count WHERE queries (batch queries from preload_triggers)
+            if sql.include?("WHERE") && sql.include?("trigger_name") && !sql.include?("LIMIT 1")
+              select_query_count += 1
+            # Count find_by queries (single record lookups)
+            elsif sql.include?("trigger_name") && sql.include?("LIMIT 1")
+              find_by_query_count += 1
+            end
+          end
+        end
 
-        # Registering should use cache, not query again
-        expect(PgSqlTriggers::TriggerRegistry).not_to receive(:find_by)
+        # Preload all triggers - should make one SELECT query with WHERE clause
+        described_class.preload_triggers(%w[trigger1 trigger2 trigger3])
+        expect(select_query_count).to eq(1)
+
+        # Registering should use cache, not query again (no find_by queries)
+        initial_find_by_count = find_by_query_count
         definitions.each do |defn|
           described_class.register(defn)
         end
+        expect(find_by_query_count).to eq(initial_find_by_count)
+      ensure
+        ActiveSupport::Notifications.unsubscribe(subscription) if subscription
       end
     end
   end
