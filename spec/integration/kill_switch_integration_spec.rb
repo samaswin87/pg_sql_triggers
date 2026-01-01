@@ -35,31 +35,14 @@ RSpec.describe "Kill Switch Integration", type: :integration do
 
   describe "Console Integration" do
     describe "TriggerRegistry" do
-      let(:trigger) do
-        PgSqlTriggers::TriggerRegistry.create!(
-          trigger_name: "test_trigger",
-          table_name: "users",
-          version: 1,
-          enabled: false,
-          source: "dsl",
-          checksum: "test_checksum",
-          environment: "production"
-        )
-      end
+      let(:trigger) { create(:trigger_registry, :production, enabled: false) }
 
       before do
-        # Create a real test table if it doesn't exist
-        unless ActiveRecord::Base.connection.table_exists?("users")
-          ActiveRecord::Base.connection.create_table :users do |t|
-            t.string :name
-            t.timestamps
-          end
-        end
+        create_users_table
       end
 
       after do
-        # Clean up test table
-        ActiveRecord::Base.connection.drop_table :users if ActiveRecord::Base.connection.table_exists?("users")
+        drop_test_table(:users)
       end
 
       # rubocop:disable RSpec/NestedGroups
@@ -290,32 +273,15 @@ RSpec.describe "Kill Switch Integration", type: :integration do
   describe "End-to-End Scenarios" do
     # rubocop:disable RSpec/ContextWording
     context "production deployment workflow" do
-      let(:trigger) do
-        PgSqlTriggers::TriggerRegistry.create!(
-          trigger_name: "test",
-          table_name: "users",
-          version: 1,
-          enabled: false,
-          source: "dsl",
-          checksum: "test",
-          environment: "production"
-        )
-      end
+      let(:trigger) { create(:trigger_registry, :production, enabled: false) }
 
       before do
         allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
-
-        # Create test table
-        unless ActiveRecord::Base.connection.table_exists?("users")
-          ActiveRecord::Base.connection.create_table :users do |t|
-            t.string :name
-            t.timestamps
-          end
-        end
+        create_users_table
       end
 
       after do
-        ActiveRecord::Base.connection.drop_table :users if ActiveRecord::Base.connection.table_exists?("users")
+        drop_test_table(:users)
       end
 
       it "blocks all dangerous operations by default" do
@@ -344,32 +310,15 @@ RSpec.describe "Kill Switch Integration", type: :integration do
     # rubocop:enable RSpec/ContextWording
 
     context "when logging and audit trail" do
-      let(:trigger) do
-        PgSqlTriggers::TriggerRegistry.create!(
-          trigger_name: "test",
-          table_name: "users",
-          version: 1,
-          enabled: false,
-          source: "dsl",
-          checksum: "test",
-          environment: "production"
-        )
-      end
+      let(:trigger) { create(:trigger_registry, :production, enabled: false) }
 
       before do
         allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
-
-        # Create test table
-        unless ActiveRecord::Base.connection.table_exists?("users")
-          ActiveRecord::Base.connection.create_table :users do |t|
-            t.string :name
-            t.timestamps
-          end
-        end
+        create_users_table
       end
 
       after do
-        ActiveRecord::Base.connection.drop_table :users if ActiveRecord::Base.connection.table_exists?("users")
+        drop_test_table(:users)
       end
 
       it "logs all kill switch events" do
@@ -396,35 +345,16 @@ RSpec.describe "Kill Switch Integration", type: :integration do
     end
 
     context "when using custom confirmation patterns" do
-      let(:trigger) do
-        PgSqlTriggers::TriggerRegistry.create!(
-          trigger_name: "test",
-          table_name: "users",
-          version: 1,
-          enabled: false,
-          source: "dsl",
-          checksum: "test",
-          environment: "production"
-        )
-      end
+      let(:trigger) { create(:trigger_registry, :production, enabled: false) }
 
       before do
         allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
-
-        # Use real configuration instead of mocking
         PgSqlTriggers.kill_switch_confirmation_pattern = ->(op) { "CONFIRM-#{op.to_s.upcase}-NOW" }
-
-        # Create test table
-        unless ActiveRecord::Base.connection.table_exists?("users")
-          ActiveRecord::Base.connection.create_table :users do |t|
-            t.string :name
-            t.timestamps
-          end
-        end
+        create_users_table
       end
 
       after do
-        ActiveRecord::Base.connection.drop_table :users if ActiveRecord::Base.connection.table_exists?("users")
+        drop_test_table(:users)
       end
 
       it "uses custom confirmation pattern" do
@@ -437,15 +367,7 @@ RSpec.describe "Kill Switch Integration", type: :integration do
         expect(trigger.enabled).to be true
 
         # Create a new trigger for the second test
-        trigger2 = PgSqlTriggers::TriggerRegistry.create!(
-          trigger_name: "test_trigger_2",
-          table_name: "users",
-          version: 1,
-          enabled: false,
-          source: "dsl",
-          checksum: "test2",
-          environment: "production"
-        )
+        trigger2 = create(:trigger_registry, :production, enabled: false)
 
         expect do
           trigger2.enable!(confirmation: "EXECUTE TRIGGER_ENABLE")
@@ -483,34 +405,16 @@ RSpec.describe "Kill Switch Integration", type: :integration do
 
   describe "Configuration Flexibility" do
     context "with kill switch disabled globally" do
-      let(:trigger) do
-        PgSqlTriggers::TriggerRegistry.create!(
-          trigger_name: "test",
-          table_name: "users",
-          version: 1,
-          enabled: false,
-          source: "dsl",
-          checksum: "test",
-          environment: "production"
-        )
-      end
+      let(:trigger) { create(:trigger_registry, :production, enabled: false) }
 
       before do
-        # Use real configuration
         PgSqlTriggers.kill_switch_enabled = false
         allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
-
-        # Create test table
-        unless ActiveRecord::Base.connection.table_exists?("users")
-          ActiveRecord::Base.connection.create_table :users do |t|
-            t.string :name
-            t.timestamps
-          end
-        end
+        create_users_table
       end
 
       after do
-        ActiveRecord::Base.connection.drop_table :users if ActiveRecord::Base.connection.table_exists?("users")
+        drop_test_table(:users)
       end
 
       it "allows all operations without confirmation" do
@@ -525,66 +429,31 @@ RSpec.describe "Kill Switch Integration", type: :integration do
 
     context "with custom protected environments" do
       before do
-        # Use real configuration
         PgSqlTriggers.kill_switch_environments = %i[production qa]
       end
 
       it "protects custom environments" do
         allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("qa"))
+        create_users_table
 
-        # Create test table
-        unless ActiveRecord::Base.connection.table_exists?("users")
-          ActiveRecord::Base.connection.create_table :users do |t|
-            t.string :name
-            t.timestamps
-          end
-        end
-
-        trigger = PgSqlTriggers::TriggerRegistry.create!(
-          trigger_name: "test",
-          table_name: "users",
-          version: 1,
-          enabled: false,
-          source: "dsl",
-          checksum: "test",
-          environment: "qa"
-        )
-
+        trigger = create(:trigger_registry, environment: "qa", enabled: false)
         expect { trigger.enable! }.to raise_error(PgSqlTriggers::KillSwitchError)
 
-        # Clean up
-        ActiveRecord::Base.connection.drop_table :users if ActiveRecord::Base.connection.table_exists?("users")
+        drop_test_table(:users)
       end
 
       it "does not protect staging if not in list" do
         allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("staging"))
+        create_users_table
 
-        # Create test table
-        unless ActiveRecord::Base.connection.table_exists?("users")
-          ActiveRecord::Base.connection.create_table :users do |t|
-            t.string :name
-            t.timestamps
-          end
-        end
-
-        trigger = PgSqlTriggers::TriggerRegistry.create!(
-          trigger_name: "test",
-          table_name: "users",
-          version: 1,
-          enabled: false,
-          source: "dsl",
-          checksum: "test",
-          environment: "staging"
-        )
-
+        trigger = create(:trigger_registry, :staging, enabled: false)
         expect { trigger.enable! }.not_to raise_error
 
         # Verify operation executed
         trigger.reload
         expect(trigger.enabled).to be true
 
-        # Clean up
-        ActiveRecord::Base.connection.drop_table :users if ActiveRecord::Base.connection.table_exists?("users")
+        drop_test_table(:users)
       end
     end
   end
