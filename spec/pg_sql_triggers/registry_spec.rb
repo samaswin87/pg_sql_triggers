@@ -187,12 +187,9 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
       function_body = "CREATE OR REPLACE FUNCTION #{function_name}() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;"
 
       # Create registry entry
-      registry = PgSqlTriggers::TriggerRegistry.create!(
+      registry = create(:trigger_registry, :enabled, :dsl_source,
         trigger_name: trigger_name,
         table_name: "users",
-        version: 1,
-        enabled: true,
-        source: "dsl",
         checksum: "test_checksum",
         definition: {}.to_json,
         function_body: function_body
@@ -435,29 +432,20 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
 
       it "reduces queries when preloading triggers" do
         # Create triggers first
-        PgSqlTriggers::TriggerRegistry.create!(
+        create(:trigger_registry, :disabled, :dsl_source,
           trigger_name: "trigger1",
           table_name: "users",
-          version: 1,
-          enabled: false,
-          checksum: "abc",
-          source: "dsl"
+          checksum: "abc"
         )
-        PgSqlTriggers::TriggerRegistry.create!(
+        create(:trigger_registry, :disabled, :dsl_source,
           trigger_name: "trigger2",
           table_name: "posts",
-          version: 1,
-          enabled: false,
-          checksum: "def",
-          source: "dsl"
+          checksum: "def"
         )
-        PgSqlTriggers::TriggerRegistry.create!(
+        create(:trigger_registry, :disabled, :dsl_source,
           trigger_name: "trigger3",
           table_name: "comments",
-          version: 1,
-          enabled: false,
-          checksum: "ghi",
-          source: "dsl"
+          checksum: "ghi"
         )
 
         # Count SELECT queries to pg_sql_triggers_registry table

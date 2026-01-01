@@ -13,13 +13,9 @@ RSpec.describe PgSqlTriggers::Drift::Detector do
     # rubocop:disable RSpec/MultipleMemoizedHelpers
     context "when trigger is in sync" do
       let!(:registry_entry) do
-        PgSqlTriggers::TriggerRegistry.create!(
+        create(:trigger_registry, :enabled, :dsl_source, :in_sync,
           trigger_name: trigger_name,
           table_name: table_name,
-          version: 1,
-          enabled: true,
-          source: "dsl",
-          checksum: calculate_checksum(trigger_name, table_name, 1, function_body, condition),
           definition: {}.to_json,
           function_body: function_body,
           condition: condition
@@ -70,13 +66,9 @@ RSpec.describe PgSqlTriggers::Drift::Detector do
       end
 
       before do
-        PgSqlTriggers::TriggerRegistry.create!(
+        create(:trigger_registry, :enabled, :dsl_source, :in_sync,
           trigger_name: trigger_name,
           table_name: table_name,
-          version: 1,
-          enabled: true,
-          source: "dsl",
-          checksum: calculate_checksum(trigger_name, table_name, 1, function_body, condition),
           definition: {}.to_json,
           function_body: function_body,
           condition: condition
@@ -97,13 +89,9 @@ RSpec.describe PgSqlTriggers::Drift::Detector do
 
     context "when trigger is missing from database" do
       let!(:registry_entry) do
-        PgSqlTriggers::TriggerRegistry.create!(
+        create(:trigger_registry, :enabled, :dsl_source, :in_sync,
           trigger_name: trigger_name,
           table_name: table_name,
-          version: 1,
-          enabled: true,
-          source: "dsl",
-          checksum: calculate_checksum(trigger_name, table_name, 1, function_body, condition),
           definition: {}.to_json,
           function_body: function_body,
           condition: condition
@@ -165,13 +153,9 @@ RSpec.describe PgSqlTriggers::Drift::Detector do
       end
 
       before do
-        PgSqlTriggers::TriggerRegistry.create!(
+        create(:trigger_registry, :disabled, :dsl_source, :in_sync,
           trigger_name: trigger_name,
           table_name: table_name,
-          version: 1,
-          enabled: false,
-          source: "dsl",
-          checksum: calculate_checksum(trigger_name, table_name, 1, function_body, condition),
           definition: {}.to_json,
           function_body: function_body,
           condition: condition
@@ -202,13 +186,9 @@ RSpec.describe PgSqlTriggers::Drift::Detector do
       end
 
       before do
-        PgSqlTriggers::TriggerRegistry.create!(
+        create(:trigger_registry, :enabled, :manual_sql_source, :in_sync,
           trigger_name: trigger_name,
           table_name: table_name,
-          version: 1,
-          enabled: true,
-          source: "manual_sql",
-          checksum: calculate_checksum(trigger_name, table_name, 1, function_body, condition),
           definition: {}.to_json,
           function_body: function_body,
           condition: condition
@@ -252,25 +232,17 @@ RSpec.describe PgSqlTriggers::Drift::Detector do
     end
 
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: "in_sync_trigger",
         table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("in_sync_trigger", table_name, 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
       )
 
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: "dropped_trigger",
         table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("dropped_trigger", table_name, 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
@@ -315,25 +287,17 @@ RSpec.describe PgSqlTriggers::Drift::Detector do
     end
 
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: "users_trigger_1",
         table_name: "users",
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("users_trigger_1", "users", 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
       )
 
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: "posts_trigger_1",
         table_name: "posts",
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("posts_trigger_1", "posts", 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition

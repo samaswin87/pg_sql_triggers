@@ -4,13 +4,10 @@ require "spec_helper"
 
 RSpec.describe PgSqlTriggers::Testing::SyntaxValidator do
   let(:registry) do
-    PgSqlTriggers::TriggerRegistry.create!(
+    create(:trigger_registry, :disabled, :dsl_source,
       trigger_name: "test_trigger",
       table_name: "test_users",
-      version: 1,
-      enabled: false,
       checksum: "abc",
-      source: "dsl",
       definition: {
         name: "test_trigger",
         table_name: "test_users",
@@ -241,13 +238,10 @@ end
 
 RSpec.describe PgSqlTriggers::Testing::DryRun do
   let(:registry) do
-    PgSqlTriggers::TriggerRegistry.create!(
+    create(:trigger_registry, :disabled, :dsl_source,
       trigger_name: "test_trigger",
       table_name: "test_users",
-      version: 1,
-      enabled: false,
       checksum: "abc",
-      source: "dsl",
       definition: {
         name: "test_trigger",
         table_name: "test_users",
@@ -307,13 +301,10 @@ end
 
 RSpec.describe PgSqlTriggers::Testing::SafeExecutor do
   let(:registry) do
-    PgSqlTriggers::TriggerRegistry.create!(
+    create(:trigger_registry, :disabled, :dsl_source,
       trigger_name: "test_trigger",
       table_name: "test_users",
-      version: 1,
-      enabled: false,
       checksum: "abc",
-      source: "dsl",
       definition: {
         name: "test_trigger",
         table_name: "test_users",
@@ -376,13 +367,10 @@ RSpec.describe PgSqlTriggers::Testing::FunctionTester do
   let(:trigger_name) { "test_trigger_function_tester_#{SecureRandom.hex(4)}" }
   
   let(:registry) do
-    PgSqlTriggers::TriggerRegistry.create!(
+    create(:trigger_registry, :disabled, :dsl_source,
       trigger_name: trigger_name,
       table_name: "test_users",
-      version: 1,
-      enabled: false,
       checksum: "abc",
-      source: "dsl",
       definition: {
         name: trigger_name,
         table_name: "test_users",

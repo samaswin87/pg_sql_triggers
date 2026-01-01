@@ -172,13 +172,10 @@ RSpec.describe PgSqlTriggers::DatabaseIntrospection do
 
   describe "#tables_with_triggers" do
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source,
         trigger_name: "registry_trigger",
         table_name: "test_users",
-        version: 1,
-        enabled: true,
-        checksum: "abc",
-        source: "dsl"
+        checksum: "abc"
       )
 
       ActiveRecord::Base.connection.execute("CREATE OR REPLACE FUNCTION db_trigger_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;")
@@ -236,13 +233,10 @@ RSpec.describe PgSqlTriggers::DatabaseIntrospection do
 
   describe "#table_triggers" do
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source,
         trigger_name: "registry_trigger",
         table_name: "test_users",
-        version: 1,
-        enabled: true,
-        checksum: "abc",
-        source: "dsl"
+        checksum: "abc"
       )
 
       ActiveRecord::Base.connection.execute("CREATE OR REPLACE FUNCTION db_trigger_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;")

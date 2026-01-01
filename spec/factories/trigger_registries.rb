@@ -51,6 +51,79 @@ FactoryBot.define do
       timing { "before" }
     end
 
+    # Drift-related traits
+    trait :drifted do
+      checksum { "old_checksum_123" }
+      after(:create) do |registry|
+        # Ensure database has different function body
+        registry.update_column(:checksum, "different_checksum")
+      end
+    end
+
+    trait :in_sync do
+      after(:build) do |registry|
+        require "digest"
+        registry.checksum = Digest::SHA256.hexdigest([
+          registry.trigger_name,
+          registry.table_name,
+          registry.version,
+          registry.function_body || "",
+          registry.condition || ""
+        ].join)
+      end
+    end
+
+    trait :missing_from_db do
+      trigger_name { "nonexistent_trigger" }
+    end
+
+    # Source type traits
+    trait :manual_sql_source do
+      source { "manual_sql" }
+    end
+
+    trait :dsl_source do
+      source { "dsl" }
+    end
+
+    trait :generated_source do
+      source { "generated" }
+    end
+
+    # Complex definition traits
+    trait :with_complex_definition do
+      definition do
+        {
+          "event" => "after_insert",
+          "for_each" => "row",
+          "when" => "NEW.status = 'active'",
+          "execute" => "notify_users()"
+        }.to_json
+      end
+    end
+
+    trait :with_json_definition do
+      definition do
+        {
+          "timing" => "after",
+          "events" => ["insert", "update"],
+          "for_each" => "row",
+          "function" => "trigger_function_name"
+        }.to_json
+      end
+    end
+
+    # Table-specific traits
+    trait :for_users_table do
+      table_name { "users" }
+      trigger_name { "users_audit_trigger" }
+    end
+
+    trait :for_posts_table do
+      table_name { "posts" }
+      trigger_name { "posts_audit_trigger" }
+    end
+
     # Convenience factory for production triggers
     factory :production_trigger, traits: [:production]
 

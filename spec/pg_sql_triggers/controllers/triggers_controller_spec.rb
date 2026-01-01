@@ -6,13 +6,10 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
   routes { PgSqlTriggers::Engine.routes }
 
   let(:trigger) do
-    PgSqlTriggers::TriggerRegistry.create!(
+    create(:trigger_registry, :enabled, :dsl_source,
       trigger_name: "test_trigger",
       table_name: "test_table",
-      version: 1,
-      checksum: "abc123",
-      source: "dsl",
-      enabled: true
+      checksum: "abc123"
     )
   end
 
@@ -24,13 +21,10 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
 
   describe "POST #enable" do
     let(:disabled_trigger) do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :disabled, :dsl_source,
         trigger_name: "disabled_trigger",
         table_name: "test_table",
-        version: 1,
-        checksum: "def456",
-        source: "dsl",
-        enabled: false
+        checksum: "def456"
       )
     end
 

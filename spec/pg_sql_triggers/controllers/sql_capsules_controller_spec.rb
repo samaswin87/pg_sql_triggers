@@ -153,16 +153,12 @@ RSpec.describe PgSqlTriggers::SqlCapsulesController, type: :controller do
 
     context "when capsule name already exists" do
       before do
-        PgSqlTriggers::TriggerRegistry.create!(
+        create(:trigger_registry, :disabled, :manual_sql_source, :production,
           trigger_name: "sql_capsule_fix_permissions",
           table_name: "manual_sql_execution",
-          version: 1,
           checksum: "abc123",
-          source: "manual_sql",
           function_body: "SELECT 1;",
-          condition: "test",
-          environment: "production",
-          enabled: false
+          condition: "test"
         )
       end
 
@@ -218,16 +214,13 @@ RSpec.describe PgSqlTriggers::SqlCapsulesController, type: :controller do
 
   describe "GET #show" do
     let!(:capsule_entry) do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :disabled, :manual_sql_source, :production,
         trigger_name: "sql_capsule_test",
         table_name: "manual_sql_execution",
         version: Time.current.to_i,
         checksum: "abc123",
-        source: "manual_sql",
         function_body: "SELECT 1;",
-        condition: "Test capsule",
-        environment: "production",
-        enabled: false
+        condition: "Test capsule"
       )
     end
 
@@ -296,16 +289,13 @@ RSpec.describe PgSqlTriggers::SqlCapsulesController, type: :controller do
 
   describe "POST #execute" do
     let!(:capsule_entry) do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :disabled, :manual_sql_source, :production,
         trigger_name: "sql_capsule_test",
         table_name: "manual_sql_execution",
         version: Time.current.to_i,
         checksum: "abc123",
-        source: "manual_sql",
         function_body: "SELECT 1 AS result;",
-        condition: "Test capsule",
-        environment: "production",
-        enabled: false
+        condition: "Test capsule"
       )
     end
 
@@ -544,16 +534,13 @@ RSpec.describe PgSqlTriggers::SqlCapsulesController, type: :controller do
 
     describe "#can_execute_capsule?" do
       let!(:capsule_entry) do
-        PgSqlTriggers::TriggerRegistry.create!(
+        create(:trigger_registry, :disabled, :manual_sql_source, :production,
           trigger_name: "sql_capsule_test",
           table_name: "manual_sql_execution",
           version: Time.current.to_i,
           checksum: "abc123",
-          source: "manual_sql",
           function_body: "SELECT 1;",
-          condition: "Test capsule",
-          environment: "production",
-          enabled: false
+          condition: "Test capsule"
         )
       end
 

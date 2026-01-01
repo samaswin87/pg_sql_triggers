@@ -47,37 +47,25 @@ RSpec.describe PgSqlTriggers::Drift::Reporter do
     end
 
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: "in_sync_trigger",
         table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("in_sync_trigger", table_name, 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
       )
 
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: "drifted_trigger",
         table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("drifted_trigger", table_name, 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
       )
 
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :disabled, :dsl_source, :in_sync,
         trigger_name: "disabled_trigger",
         table_name: table_name,
-        version: 1,
-        enabled: false,
-        source: "dsl",
-        checksum: calculate_checksum("disabled_trigger", table_name, 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
@@ -115,13 +103,9 @@ RSpec.describe PgSqlTriggers::Drift::Reporter do
     end
 
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: trigger_name,
         table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum(trigger_name, table_name, 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
@@ -158,13 +142,9 @@ RSpec.describe PgSqlTriggers::Drift::Reporter do
 
   describe ".diff" do
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: trigger_name,
         table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum(trigger_name, table_name, 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
@@ -251,13 +231,9 @@ RSpec.describe PgSqlTriggers::Drift::Reporter do
     end
 
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: "drifted_trigger",
         table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("drifted_trigger", table_name, 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
@@ -312,25 +288,17 @@ RSpec.describe PgSqlTriggers::Drift::Reporter do
     end
 
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: "drifted_trigger",
         table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("drifted_trigger", table_name, 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
       )
 
-      PgSqlTriggers::TriggerRegistry.create!(
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
         trigger_name: "dropped_trigger",
         table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("dropped_trigger", table_name, 1, function_body, condition),
         definition: {}.to_json,
         function_body: function_body,
         condition: condition
