@@ -19,6 +19,8 @@ require "action_view"
 require "active_support/testing/time_helpers"
 require "rspec/rails"
 require "rails-controller-testing"
+require "database_cleaner/active_record"
+require "factory_bot_rails"
 
 # Load the engine first
 require "pg_sql_triggers"
@@ -89,6 +91,9 @@ rescue StandardError
   end
 end
 
+# Load support files
+Dir[File.expand_path("support/**/*.rb", __dir__)].each { |f| require f }
+
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
@@ -99,6 +104,9 @@ RSpec.configure do |config|
   config.expect_with :rspec do |c|
     c.syntax = :expect
   end
+
+  # Include FactoryBot methods
+  config.include FactoryBot::Syntax::Methods
 
   # Include Rails helpers
   config.include ActiveSupport::Testing::TimeHelpers
@@ -112,21 +120,22 @@ RSpec.configure do |config|
     controller.prepend_view_path(engine_view_path) if controller.respond_to?(:prepend_view_path)
   end
 
-  # Use database transactions for tests
-  # Rails 7+ deprecated use_transactional_fixtures in favor of use_transactional_tests
-  if config.respond_to?(:use_transactional_tests=)
-    config.use_transactional_tests = true
-  elsif config.respond_to?(:use_transactional_fixtures=)
-    config.use_transactional_fixtures = true
-  end
-
-  # Clean database before each test
+  # Database setup - create tables before suite
   config.before(:suite) do
     # Ensure connection is established
     ActiveRecord::Base.connection
 
     # Create tables if they don't exist
-    unless ActiveRecord::Base.connection.table_exists?("pg_sql_triggers_registry")
+    if ActiveRecord::Base.connection.table_exists?("pg_sql_triggers_registry")
+      # Add last_executed_at column if it doesn't exist
+      unless ActiveRecord::Base.connection.column_exists?("pg_sql_triggers_registry", :last_executed_at)
+        ActiveRecord::Base.connection.add_column "pg_sql_triggers_registry", :last_executed_at, :datetime
+      end
+      # Add timing column if it doesn't exist
+      unless ActiveRecord::Base.connection.column_exists?("pg_sql_triggers_registry", :timing)
+        ActiveRecord::Base.connection.add_column "pg_sql_triggers_registry", :timing, :string, default: "before", null: false
+      end
+    else
       ActiveRecord::Base.connection.create_table "pg_sql_triggers_registry" do |t|
         t.string :trigger_name, null: false
         t.string :table_name, null: false
@@ -138,8 +147,10 @@ RSpec.configure do |config|
         t.text :definition
         t.text :function_body
         t.text :condition
+        t.string :timing, default: "before", null: false
         t.datetime :installed_at
         t.datetime :last_verified_at
+        t.datetime :last_executed_at
         t.timestamps
       end
 
@@ -153,15 +164,21 @@ RSpec.configure do |config|
       end
       ActiveRecord::Base.connection.add_index "trigger_migrations", :version, unique: true
     end
+
+    # Configure DatabaseCleaner
+    # Allow cleaning even when ENV['RAILS_ENV'] or ENV['RACK_ENV'] is set to production in tests
+    DatabaseCleaner.allow_remote_database_url = true
+    DatabaseCleaner.allow_production = true
+    # Use truncation strategy for better isolation in Rails 7/Ruby 3.4
+    # Transaction strategy can have issues with test isolation in newer Rails versions
+    DatabaseCleaner.strategy = :truncation
+    DatabaseCleaner.clean_with(:truncation)
   end
 
-  config.before do
-    # Clean tables before each test
-    if ActiveRecord::Base.connection.table_exists?("pg_sql_triggers_registry")
-      ActiveRecord::Base.connection.execute("TRUNCATE TABLE pg_sql_triggers_registry CASCADE")
-    end
-    if ActiveRecord::Base.connection.table_exists?("trigger_migrations")
-      ActiveRecord::Base.connection.execute("TRUNCATE TABLE trigger_migrations CASCADE")
+  # Use DatabaseCleaner with transactions for test isolation
+  config.around do |example|
+    DatabaseCleaner.cleaning do
+      example.run
     end
   end
 end

@@ -47,41 +47,26 @@ RSpec.describe PgSqlTriggers::Drift::Reporter do
     end
 
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
-        trigger_name: "in_sync_trigger",
-        table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("in_sync_trigger", table_name, 1, function_body, condition),
-        definition: {}.to_json,
-        function_body: function_body,
-        condition: condition
-      )
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
+             trigger_name: "in_sync_trigger",
+             table_name: table_name,
+             definition: {}.to_json,
+             function_body: function_body,
+             condition: condition)
 
-      PgSqlTriggers::TriggerRegistry.create!(
-        trigger_name: "drifted_trigger",
-        table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("drifted_trigger", table_name, 1, function_body, condition),
-        definition: {}.to_json,
-        function_body: function_body,
-        condition: condition
-      )
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
+             trigger_name: "drifted_trigger",
+             table_name: table_name,
+             definition: {}.to_json,
+             function_body: function_body,
+             condition: condition)
 
-      PgSqlTriggers::TriggerRegistry.create!(
-        trigger_name: "disabled_trigger",
-        table_name: table_name,
-        version: 1,
-        enabled: false,
-        source: "dsl",
-        checksum: calculate_checksum("disabled_trigger", table_name, 1, function_body, condition),
-        definition: {}.to_json,
-        function_body: function_body,
-        condition: condition
-      )
+      create(:trigger_registry, :disabled, :dsl_source, :in_sync,
+             trigger_name: "disabled_trigger",
+             table_name: table_name,
+             definition: {}.to_json,
+             function_body: function_body,
+             condition: condition)
 
       allow(PgSqlTriggers::Drift::DbQueries).to receive(:all_triggers).and_return(db_triggers)
       allow(PgSqlTriggers::Drift::DbQueries).to receive(:find_trigger) do |name|
@@ -115,17 +100,12 @@ RSpec.describe PgSqlTriggers::Drift::Reporter do
     end
 
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
-        trigger_name: trigger_name,
-        table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum(trigger_name, table_name, 1, function_body, condition),
-        definition: {}.to_json,
-        function_body: function_body,
-        condition: condition
-      )
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
+             trigger_name: trigger_name,
+             table_name: table_name,
+             definition: {}.to_json,
+             function_body: function_body,
+             condition: condition)
 
       allow(PgSqlTriggers::Drift::DbQueries).to receive(:find_trigger)
         .with(trigger_name)
@@ -158,17 +138,12 @@ RSpec.describe PgSqlTriggers::Drift::Reporter do
 
   describe ".diff" do
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
-        trigger_name: trigger_name,
-        table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum(trigger_name, table_name, 1, function_body, condition),
-        definition: {}.to_json,
-        function_body: function_body,
-        condition: condition
-      )
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
+             trigger_name: trigger_name,
+             table_name: table_name,
+             definition: {}.to_json,
+             function_body: function_body,
+             condition: condition)
     end
 
     # rubocop:disable RSpec/MultipleMemoizedHelpers
@@ -251,17 +226,12 @@ RSpec.describe PgSqlTriggers::Drift::Reporter do
     end
 
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
-        trigger_name: "drifted_trigger",
-        table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("drifted_trigger", table_name, 1, function_body, condition),
-        definition: {}.to_json,
-        function_body: function_body,
-        condition: condition
-      )
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
+             trigger_name: "drifted_trigger",
+             table_name: table_name,
+             definition: {}.to_json,
+             function_body: function_body,
+             condition: condition)
 
       allow(PgSqlTriggers::Drift::DbQueries).to receive(:all_triggers).and_return(db_triggers)
       allow(PgSqlTriggers::Drift::DbQueries).to receive(:find_trigger)
@@ -312,29 +282,19 @@ RSpec.describe PgSqlTriggers::Drift::Reporter do
     end
 
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
-        trigger_name: "drifted_trigger",
-        table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("drifted_trigger", table_name, 1, function_body, condition),
-        definition: {}.to_json,
-        function_body: function_body,
-        condition: condition
-      )
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
+             trigger_name: "drifted_trigger",
+             table_name: table_name,
+             definition: {}.to_json,
+             function_body: function_body,
+             condition: condition)
 
-      PgSqlTriggers::TriggerRegistry.create!(
-        trigger_name: "dropped_trigger",
-        table_name: table_name,
-        version: 1,
-        enabled: true,
-        source: "dsl",
-        checksum: calculate_checksum("dropped_trigger", table_name, 1, function_body, condition),
-        definition: {}.to_json,
-        function_body: function_body,
-        condition: condition
-      )
+      create(:trigger_registry, :enabled, :dsl_source, :in_sync,
+             trigger_name: "dropped_trigger",
+             table_name: table_name,
+             definition: {}.to_json,
+             function_body: function_body,
+             condition: condition)
 
       allow(PgSqlTriggers::Drift::DbQueries).to receive(:all_triggers).and_return(db_triggers)
       allow(PgSqlTriggers::Drift::DbQueries).to receive(:find_trigger) do |name|

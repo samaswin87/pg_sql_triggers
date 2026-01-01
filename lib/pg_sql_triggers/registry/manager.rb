@@ -33,8 +33,13 @@ module PgSqlTriggers
           trigger_name = definition.name
 
           # Use cached lookup if available to avoid N+1 queries during trigger file loading
-          existing = _registry_cache[trigger_name] ||=
-            PgSqlTriggers::TriggerRegistry.find_by(trigger_name: trigger_name)
+          # Explicitly check cache first to avoid query in some Ruby versions where ||= may evaluate RHS
+          existing = if _registry_cache.key?(trigger_name)
+                       _registry_cache[trigger_name]
+                     else
+                       _registry_cache[trigger_name] =
+                         PgSqlTriggers::TriggerRegistry.find_by(trigger_name: trigger_name)
+                     end
 
           # Calculate checksum using field-concatenation (consistent with TriggerRegistry model)
           checksum = calculate_checksum(definition)
@@ -51,17 +56,27 @@ module PgSqlTriggers
           }
 
           if existing
-            begin
-              existing.update!(attributes)
-              # Update cache with the modified record (reload to get fresh data)
-              reloaded = existing.reload
-              _registry_cache[trigger_name] = reloaded
-              reloaded
-            rescue ActiveRecord::RecordNotFound
-              # Cached record was deleted, create a new one
-              new_record = PgSqlTriggers::TriggerRegistry.create!(attributes)
-              _registry_cache[trigger_name] = new_record
-              new_record
+            # Check if attributes have actually changed to avoid unnecessary queries
+            attributes_changed = attributes.any? do |key, value|
+              existing.send(key) != value
+            end
+
+            if attributes_changed
+              begin
+                existing.update!(attributes)
+                # Update cache with the modified record (reload to get fresh data)
+                reloaded = existing.reload
+                _registry_cache[trigger_name] = reloaded
+                reloaded
+              rescue ActiveRecord::RecordNotFound
+                # Cached record was deleted, create a new one
+                new_record = PgSqlTriggers::TriggerRegistry.create!(attributes)
+                _registry_cache[trigger_name] = new_record
+                new_record
+              end
+            else
+              # No changes, return cached record without any queries
+              existing
             end
           else
             new_record = PgSqlTriggers::TriggerRegistry.create!(attributes)

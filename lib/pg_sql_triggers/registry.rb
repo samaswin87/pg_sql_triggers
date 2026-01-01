@@ -32,5 +32,46 @@ module PgSqlTriggers
     def self.validate!
       Validator.validate!
     end
+
+    # Console APIs for trigger operations
+    # These methods provide a convenient interface for managing triggers from the Rails console
+
+    def self.enable(trigger_name, actor:, confirmation: nil)
+      check_permission!(actor, :enable_trigger)
+      trigger = find_trigger!(trigger_name)
+      trigger.enable!(confirmation: confirmation)
+    end
+
+    def self.disable(trigger_name, actor:, confirmation: nil)
+      check_permission!(actor, :disable_trigger)
+      trigger = find_trigger!(trigger_name)
+      trigger.disable!(confirmation: confirmation)
+    end
+
+    def self.drop(trigger_name, actor:, reason:, confirmation: nil)
+      check_permission!(actor, :drop_trigger)
+      trigger = find_trigger!(trigger_name)
+      trigger.drop!(reason: reason, confirmation: confirmation, actor: actor)
+    end
+
+    def self.re_execute(trigger_name, actor:, reason:, confirmation: nil)
+      check_permission!(actor, :drop_trigger) # Re-execute requires same permission as drop
+      trigger = find_trigger!(trigger_name)
+      trigger.re_execute!(reason: reason, confirmation: confirmation, actor: actor)
+    end
+
+    # Private helper methods
+
+    def self.find_trigger!(trigger_name)
+      PgSqlTriggers::TriggerRegistry.find_by!(trigger_name: trigger_name)
+    rescue ActiveRecord::RecordNotFound
+      raise ArgumentError, "Trigger '#{trigger_name}' not found in registry"
+    end
+    private_class_method :find_trigger!
+
+    def self.check_permission!(actor, action)
+      PgSqlTriggers::Permissions.check!(actor, action)
+    end
+    private_class_method :check_permission!
   end
 end

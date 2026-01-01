@@ -28,6 +28,15 @@ begin
         post :redo
       end
     end
+
+    resources :triggers, only: [:show] do
+      member do
+        post :enable
+        post :disable
+        post :drop
+        post :re_execute
+      end
+    end
   end
 rescue ArgumentError => e
   # Ignore duplicate route errors (routes may already be drawn in tests)

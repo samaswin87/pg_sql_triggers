@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-01-01
+
+### Added
+- **SQL Capsules**: Emergency SQL execution feature for critical operations
+  - Named SQL capsules with environment declaration and purpose description
+  - Capsule class for creating and managing SQL capsules
+  - Executor class for safe, transactional SQL execution
+  - Permission checks (Admin role required for execution)
+  - Kill switch protection for all executions
+  - Checksum calculation and storage in registry
+  - Comprehensive logging of all operations
+  - Web UI for creating, viewing, and executing SQL capsules
+  - Console API: `PgSqlTriggers::SQL::Executor.execute(capsule, actor:, confirmation:)`
+
+- **Drop & Re-Execute Flow**: Operational controls for trigger lifecycle management
+  - `TriggerRegistry#drop!` method for safely dropping triggers
+    - Admin permission required
+    - Kill switch protection
+    - Reason field (required and logged)
+    - Typed confirmation required in protected environments
+    - Transactional execution
+    - Removes trigger from database and registry
+  - `TriggerRegistry#re_execute!` method for fixing drifted triggers
+    - Admin permission required
+    - Kill switch protection
+    - Shows drift diff before execution
+    - Reason field (required and logged)
+    - Typed confirmation required in protected environments
+    - Transactional execution
+    - Drops and re-creates trigger from registry definition
+  - Web UI buttons for drop and re-execute on trigger detail page
+  - Controller actions with proper permission checks and error handling
+  - Interactive modals with reason input and confirmation fields
+  - Drift comparison shown before re-execution
+
+- **Enhanced Permissions Enforcement**:
+  - Console APIs with permission checks:
+    - `PgSqlTriggers::Registry.enable(trigger_name, actor:, confirmation:)`
+    - `PgSqlTriggers::Registry.disable(trigger_name, actor:, confirmation:)`
+    - `PgSqlTriggers::Registry.drop(trigger_name, actor:, reason:, confirmation:)`
+    - `PgSqlTriggers::Registry.re_execute(trigger_name, actor:, reason:, confirmation:)`
+  - Permission checks enforced at console API level
+  - Rake tasks already protected by kill switch
+  - Clear error messages for permission violations
+
+### Fixed
+- Improved error handling for trigger enable/disable operations
+- Better logging for drop and re-execute operations
+- Fixed rubocop linting issues
+
+### Security
+- All destructive operations (drop, re-execute, SQL capsule execution) require Admin permissions
+- Kill switch protection enforced across all new features
+- Typed confirmation required in protected environments
+- Comprehensive audit logging for all operations
+
 ## [1.1.1] - 2025-12-31
 
 ### Changed

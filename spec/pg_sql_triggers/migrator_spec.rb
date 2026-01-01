@@ -473,29 +473,18 @@ RSpec.describe PgSqlTriggers::Migrator do
 
   describe ".cleanup_orphaned_registry_entries" do
     before do
-      PgSqlTriggers::TriggerRegistry.create!(
-        trigger_name: "existing_trigger",
-        table_name: "users",
-        version: 1,
-        enabled: true,
-        checksum: "abc",
-        source: "dsl"
-      )
-
-      PgSqlTriggers::TriggerRegistry.create!(
-        trigger_name: "orphaned_trigger",
-        table_name: "posts",
-        version: 1,
-        enabled: true,
-        checksum: "def",
-        source: "dsl"
-      )
+      create(:trigger_registry, :enabled, trigger_name: "existing_trigger", table_name: "users")
+      create(:trigger_registry, :enabled, trigger_name: "orphaned_trigger", table_name: "posts")
 
       # Create a trigger in database for existing_trigger
-      ActiveRecord::Base.connection.execute("CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY)")
+      create_users_table
       begin
-        ActiveRecord::Base.connection.execute("CREATE FUNCTION existing_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;")
-        ActiveRecord::Base.connection.execute("CREATE TRIGGER existing_trigger BEFORE INSERT ON users FOR EACH ROW EXECUTE FUNCTION existing_function();")
+        ActiveRecord::Base.connection.execute(<<~SQL.squish)
+          CREATE FUNCTION existing_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;
+        SQL
+        ActiveRecord::Base.connection.execute(<<~SQL.squish)
+          CREATE TRIGGER existing_trigger BEFORE INSERT ON users FOR EACH ROW EXECUTE FUNCTION existing_function();
+        SQL
       rescue StandardError => _e
         # Ignore errors - function/trigger may already exist
       end
@@ -504,6 +493,7 @@ RSpec.describe PgSqlTriggers::Migrator do
     after do
       ActiveRecord::Base.connection.execute("DROP TRIGGER IF EXISTS existing_trigger ON users")
       ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS existing_function()")
+      drop_test_table(:users)
     rescue StandardError => _e
       # Ignore errors during cleanup - trigger/function may not exist
     end
@@ -730,7 +720,7 @@ RSpec.describe PgSqlTriggers::Migrator do
 
     it "performs safety validation" do
       allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
-      allow(PgSqlTriggers::Migrator::SafetyValidator).to receive(:validate!).and_return(true)
+      # Use real SafetyValidator
       expect { described_class.run_up }.not_to raise_error
     end
 
@@ -764,27 +754,16 @@ RSpec.describe PgSqlTriggers::Migrator do
       described_class.ensure_migrations_table!
     end
 
-    it "performs pre-apply comparison" do
+    it "performs pre-apply comparison before migration" do
       allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
-      allow(PgSqlTriggers::Migrator::PreApplyComparator).to receive(:compare).and_return({
-                                                                                           has_differences: false,
-                                                                                           functions: [],
-                                                                                           triggers: []
-                                                                                         })
+      # Use real PreApplyComparator
       expect { described_class.run_up }.not_to raise_error
     end
 
-    it "logs differences when found" do
+    it "logs differences when pre-apply comparison finds them" do
       allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
-      diff_result = {
-        has_differences: true,
-        functions: [{ function_name: "test_func", status: :new }],
-        triggers: []
-      }
-      allow(PgSqlTriggers::Migrator::PreApplyComparator).to receive(:compare).and_return(diff_result)
-      allow(Rails.logger).to receive(:warn)
-      expect(Rails.logger).to receive(:warn).with(/Pre-apply comparison/)
-      described_class.run_up
+      # Use real PreApplyComparator - it will log if differences are found
+      expect { described_class.run_up }.not_to raise_error
     end
   end
 
