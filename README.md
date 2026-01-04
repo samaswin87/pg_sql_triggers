@@ -95,7 +95,18 @@ Automatically detect when database triggers drift from your DSL definitions.
 Multi-layered safety mechanism preventing accidental destructive operations in production environments.
 
 ### Web Dashboard
-Visual interface for managing triggers, running migrations, and executing SQL capsules.
+Visual interface for managing triggers, running migrations, and executing SQL capsules. Includes:
+- **Quick Actions**: Enable/disable, drop, and re-execute triggers from dashboard
+- **Last Applied Tracking**: See when triggers were last applied with human-readable timestamps
+- **Breadcrumb Navigation**: Easy navigation between dashboard, tables, and triggers
+- **Permission-Aware UI**: Buttons show/hide based on user role
+
+### Audit Logging
+Comprehensive audit trail for all trigger operations:
+- Track who performed each operation (actor tracking)
+- Before and after state capture
+- Success/failure logging with error messages
+- Reason tracking for drop and re-execute operations
 
 ### SQL Capsules
 Emergency SQL execution feature for critical operations with Admin permission requirements, kill switch protection, and comprehensive logging.

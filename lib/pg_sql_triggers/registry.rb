@@ -39,13 +39,13 @@ module PgSqlTriggers
     def self.enable(trigger_name, actor:, confirmation: nil)
       check_permission!(actor, :enable_trigger)
       trigger = find_trigger!(trigger_name)
-      trigger.enable!(confirmation: confirmation)
+      trigger.enable!(confirmation: confirmation, actor: actor)
     end
 
     def self.disable(trigger_name, actor:, confirmation: nil)
       check_permission!(actor, :disable_trigger)
       trigger = find_trigger!(trigger_name)
-      trigger.disable!(confirmation: confirmation)
+      trigger.disable!(confirmation: confirmation, actor: actor)
     end
 
     def self.drop(trigger_name, actor:, reason:, confirmation: nil)
@@ -65,7 +65,12 @@ module PgSqlTriggers
     def self.find_trigger!(trigger_name)
       PgSqlTriggers::TriggerRegistry.find_by!(trigger_name: trigger_name)
     rescue ActiveRecord::RecordNotFound
-      raise ArgumentError, "Trigger '#{trigger_name}' not found in registry"
+      raise PgSqlTriggers::NotFoundError.new(
+        "Trigger '#{trigger_name}' not found in registry",
+        error_code: "TRIGGER_NOT_FOUND",
+        recovery_suggestion: "Verify the trigger name or create the trigger first using the generator or DSL.",
+        context: { trigger_name: trigger_name }
+      )
     end
     private_class_method :find_trigger!
 

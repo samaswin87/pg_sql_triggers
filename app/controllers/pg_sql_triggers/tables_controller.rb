@@ -2,6 +2,8 @@
 
 module PgSqlTriggers
   class TablesController < ApplicationController
+    before_action :check_viewer_permission
+
     def index
       all_tables = PgSqlTriggers::DatabaseIntrospection.new.tables_with_triggers
       # Only show tables that have at least one trigger

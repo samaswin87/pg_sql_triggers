@@ -1,0 +1,178 @@
+<%# Audit Log Index Page %>
+<div style="max-width: 1400px; margin: 0 auto; padding: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h1 style="margin: 0;">Audit Log</h1>
+    <div style="display: flex; gap: 1rem;">
+      <%= link_to "Dashboard", dashboard_path, style: "padding: 0.5rem 1rem; background: #6c757d; color: white; text-decoration: none; border-radius: 4px; display: inline-block;" %>
+      <% csv_params = params.permit(:trigger_name, :operation, :status, :environment, :actor_id).to_h %>
+      <%= link_to "Export CSV", audit_logs_path(csv_params.merge(format: :csv)), style: "padding: 0.5rem 1rem; background: #28a745; color: white; text-decoration: none; border-radius: 4px; display: inline-block;" %>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div style="background: white; padding: 1.5rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+    <h3 style="margin-top: 0; margin-bottom: 1rem;">Filters</h3>
+    <%= form_with url: audit_logs_path, method: :get, local: true, style: "display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;" do |f| %>
+      <div>
+        <%= f.label :trigger_name, "Trigger Name", style: "display: block; margin-bottom: 0.5rem; font-weight: 600;" %>
+        <%= f.select :trigger_name, options_for_select([["All", ""]] + @available_trigger_names.map { |n| [n, n] }, params[:trigger_name]), {}, { style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" } %>
+      </div>
+
+      <div>
+        <%= f.label :operation, "Operation", style: "display: block; margin-bottom: 0.5rem; font-weight: 600;" %>
+        <%= f.select :operation, options_for_select([["All", ""]] + @available_operations.map { |o| [o.humanize, o] }, params[:operation]), {}, { style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" } %>
+      </div>
+
+      <div>
+        <%= f.label :status, "Status", style: "display: block; margin-bottom: 0.5rem; font-weight: 600;" %>
+        <%= f.select :status, options_for_select([["All", ""], ["Success", "success"], ["Failure", "failure"]], params[:status]), {}, { style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" } %>
+      </div>
+
+      <div>
+        <%= f.label :environment, "Environment", style: "display: block; margin-bottom: 0.5rem; font-weight: 600;" %>
+        <%= f.select :environment, options_for_select([["All", ""]] + @available_environments.map { |e| [e.humanize, e] }, params[:environment]), {}, { style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" } %>
+      </div>
+
+      <div>
+        <%= f.label :sort, "Sort Order", style: "display: block; margin-bottom: 0.5rem; font-weight: 600;" %>
+        <%= f.select :sort, options_for_select([["Newest First", "desc"], ["Oldest First", "asc"]], params[:sort] || "desc"), {}, { style: "width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px;" } %>
+      </div>
+
+      <div style="display: flex; align-items: flex-end; gap: 0.5rem;">
+        <%= f.submit "Apply Filters", style: "padding: 0.5rem 1rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;" %>
+        <%= link_to "Clear", audit_logs_path, style: "padding: 0.5rem 1rem; background: #6c757d; color: white; text-decoration: none; border-radius: 4px; display: inline-block;" %>
+      </div>
+    <% end %>
+  </div>
+
+  <!-- Results Summary -->
+  <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+    <strong>Total Results:</strong> <%= @total_count %> entries
+    <% if params[:trigger_name].present? || params[:operation].present? || params[:status].present? || params[:environment].present? %>
+      <span style="color: #6c757d;">(filtered)</span>
+    <% end %>
+  </div>
+
+  <!-- Audit Log Table -->
+  <% if @audit_logs.any? %>
+    <div style="background: white; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Time</th>
+            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Trigger</th>
+            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Operation</th>
+            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Status</th>
+            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Environment</th>
+            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Actor</th>
+            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Reason</th>
+            <th style="padding: 0.75rem; text-align: left; font-weight: 600;">Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @audit_logs.each do |log| %>
+            <tr style="border-bottom: 1px solid #dee2e6;">
+              <td style="padding: 0.75rem;">
+                <span title="<%= log.created_at.strftime("%Y-%m-%d %H:%M:%S %Z") %>" style="cursor: help;">
+                  <%= distance_of_time_in_words_to_now(log.created_at) %> ago
+                </span>
+                <br>
+                <small style="color: #6c757d;"><%= log.created_at.strftime("%Y-%m-%d %H:%M:%S") %></small>
+              </td>
+              <td style="padding: 0.75rem;">
+                <% if log.trigger_name.present? %>
+                  <%= link_to log.trigger_name, trigger_path(PgSqlTriggers::TriggerRegistry.find_by(trigger_name: log.trigger_name)), style: "color: #007bff; text-decoration: none;" rescue log.trigger_name %>
+                <% else %>
+                  <span style="color: #6c757d;">—</span>
+                <% end %>
+              </td>
+              <td style="padding: 0.75rem;">
+                <code style="background: #f8f9fa; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.875rem;"><%= log.operation %></code>
+              </td>
+              <td style="padding: 0.75rem;">
+                <% if log.status == "success" %>
+                  <span style="background: #d4edda; color: #155724; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.875rem; font-weight: 600;">Success</span>
+                <% else %>
+                  <span style="background: #f8d7da; color: #721c24; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.875rem; font-weight: 600;">Failure</span>
+                <% end %>
+              </td>
+              <td style="padding: 0.75rem;">
+                <% if log.environment.present? %>
+                  <span class="badge badge-info"><%= log.environment %></span>
+                <% else %>
+                  <span style="color: #6c757d;">—</span>
+                <% end %>
+              </td>
+              <td style="padding: 0.75rem;">
+                <% if log.actor.present? %>
+                  <% actor_type = log.actor.is_a?(Hash) ? (log.actor["type"] || log.actor[:type]) : nil %>
+                  <% actor_id = log.actor.is_a?(Hash) ? (log.actor["id"] || log.actor[:id]) : nil %>
+                  <% if actor_type && actor_id %>
+                    <code style="background: #f8f9fa; padding: 0.25rem 0.5rem; border-radius: 3px; font-size: 0.875rem;"><%= "#{actor_type}:#{actor_id}" %></code>
+                  <% else %>
+                    <span style="color: #6c757d;">—</span>
+                  <% end %>
+                <% else %>
+                  <span style="color: #6c757d;">—</span>
+                <% end %>
+              </td>
+              <td style="padding: 0.75rem;">
+                <% if log.reason.present? %>
+                  <span title="<%= log.reason %>" style="cursor: help;">
+                    <%= truncate(log.reason, length: 50) %>
+                  </span>
+                <% else %>
+                  <span style="color: #6c757d;">—</span>
+                <% end %>
+              </td>
+              <td style="padding: 0.75rem;">
+                <% if log.error_message.present? %>
+                  <span style="color: #dc3545; cursor: help;" title="<%= log.error_message %>">
+                    <%= truncate(log.error_message, length: 50) %>
+                  </span>
+                <% else %>
+                  <span style="color: #6c757d;">—</span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <% if @total_pages > 1 %>
+      <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 2rem;">
+        <% if @page > 1 %>
+          <% prev_params = params.except(:page).permit(:trigger_name, :operation, :status, :environment, :sort, :per_page).to_h %>
+          <%= link_to "« Previous", audit_logs_path(prev_params.merge(page: @page - 1)), style: "padding: 0.5rem 1rem; background: #007bff; color: white; text-decoration: none; border-radius: 4px;" %>
+        <% else %>
+          <span style="padding: 0.5rem 1rem; background: #e9ecef; color: #6c757d; border-radius: 4px; cursor: not-allowed;">« Previous</span>
+        <% end %>
+
+        <span style="color: #6c757d;">
+          Page <%= @page %> of <%= @total_pages %>
+        </span>
+
+        <% if @page < @total_pages %>
+          <% next_params = params.except(:page).permit(:trigger_name, :operation, :status, :environment, :sort, :per_page).to_h %>
+          <%= link_to "Next »", audit_logs_path(next_params.merge(page: @page + 1)), style: "padding: 0.5rem 1rem; background: #007bff; color: white; text-decoration: none; border-radius: 4px;" %>
+        <% else %>
+          <span style="padding: 0.5rem 1rem; background: #e9ecef; color: #6c757d; border-radius: 4px; cursor: not-allowed;">Next »</span>
+        <% end %>
+      </div>
+    <% end %>
+  <% else %>
+    <div style="background: white; padding: 3rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center;">
+      <h3 style="margin-top: 0; color: #6c757d;">No audit log entries found</h3>
+      <p style="color: #6c757d;">
+        <% if params[:trigger_name].present? || params[:operation].present? || params[:status].present? || params[:environment].present? %>
+          Try adjusting your filters or <%= link_to "clear filters", audit_logs_path, style: "color: #007bff;" %>.
+        <% else %>
+          Audit log entries will appear here as operations are performed.
+        <% end %>
+      </p>
+    </div>
+  <% end %>
+</div>
+

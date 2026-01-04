@@ -1,12 +1,21 @@
-<% form_id = "trigger-drop-#{trigger.id}-form" %>
+<% form_id = local_assigns[:form_id] || "trigger-drop-#{trigger.id}-form" %>
+<% redirect_path = local_assigns[:redirect_to] || params[:redirect_to] || trigger_path(trigger) %>
+<% button_size = local_assigns[:button_size] || :medium %>
 
 <%= form_with url: drop_trigger_path(trigger), method: :post, local: true, id: form_id, style: "margin: 0; display: inline-block;" do |f| %>
-  <%= f.hidden_field :redirect_to, value: params[:redirect_to] || trigger_path(trigger) %>
+  <%= f.hidden_field :redirect_to, value: redirect_path %>
 
-  <button type="button" onclick="showDropModal('<%= form_id %>')"
-      style="padding: 0.75rem 1.5rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; font-weight: 600;">
-    Drop Trigger
-  </button>
+  <% if button_size == :small %>
+    <button type="button" onclick="showDropModal('<%= form_id %>')"
+        style="padding: 0.25rem 0.75rem; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.75rem;">
+      Drop
+    </button>
+  <% else %>
+    <button type="button" onclick="showDropModal('<%= form_id %>')"
+        style="padding: 0.75rem 1.5rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; font-weight: 600;">
+      Drop Trigger
+    </button>
+  <% end %>
 <% end %>
 
 <!-- Drop Modal -->

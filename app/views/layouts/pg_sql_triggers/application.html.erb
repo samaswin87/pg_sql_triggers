@@ -18,7 +18,8 @@
       <div>
         <%= link_to "Dashboard", root_path, style: "color: white; margin-right: 1rem;" %>
         <%= link_to "Tables", tables_path, style: "color: white; margin-right: 1rem;" %>
-        <%= link_to "Generator", new_generator_path, style: "color: white;" %>
+        <%= link_to "Generator", new_generator_path, style: "color: white; margin-right: 1rem;" %>
+        <%= link_to "Audit Log", audit_logs_path, style: "color: white;" %>
       </div>
     </div>
   </nav>
@@ -35,7 +36,7 @@
     <% if flash[:error] %>
       <div style="background: #f8d7da; color: #721c24; padding: 1rem; margin-bottom: 1rem; border-radius: 4px; border-left: 4px solid #dc3545;">
         <% error_message = flash[:error].to_s %>
-        <% if error_message.include?("Kill switch is active") %>
+        <% if error_message.include?("Kill switch is active") || error_message.include?("KILL_SWITCH") %>
           <%# Format kill switch error messages nicely %>
           <% lines = error_message.split("\n") %>
 
@@ -55,16 +56,35 @@
 
           <%# Instructions section with preserved formatting %>
           <div style="margin-top: 0.5rem;">
-            <%# Extract and format the instructions portion %>
-            <% instructions_start = error_message.index("To override") || 0 %>
-            <% instructions_text = error_message[instructions_start..-1] %>
+            <%# Extract and format the instructions/recovery portion %>
+            <% recovery_start = error_message.index("Recovery:") || error_message.index("To override") || 0 %>
+            <% recovery_text = error_message[recovery_start..-1] %>
+            <% if recovery_text.start_with?("Recovery:") %>
+              <% recovery_text = recovery_text.sub("Recovery:", "").strip %>
+            <% end %>
             <div style="white-space: pre-wrap; word-wrap: break-word; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6;">
-              <%= instructions_text.strip %>
+              <%= recovery_text.strip %>
+            </div>
+          </div>
+        <% elsif error_message.include?("Permission denied") || error_message.include?("PERMISSION_DENIED") %>
+          <%# Format permission error messages %>
+          <div style="display: flex; align-items: flex-start; margin-bottom: 0.5rem;">
+            <span style="font-size: 1.5em; margin-right: 0.75rem;">🔒</span>
+            <div style="flex: 1;">
+              <div style="font-weight: bold; font-size: 1.1em; margin-bottom: 0.5rem;">Permission Denied</div>
+              <div style="white-space: pre-wrap; word-wrap: break-word;"><%= error_message %></div>
             </div>
           </div>
         <% else %>
           <%# Regular error message - preserve formatting %>
           <div style="white-space: pre-wrap; word-wrap: break-word;"><%= error_message %></div>
+          <% if Rails.env.development? && defined?(exception) && exception %>
+            <%# Show stack trace in development %>
+            <details style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f5c6cb;">
+              <summary style="cursor: pointer; font-weight: bold; color: #721c24;">Stack Trace (Development Only)</summary>
+              <pre style="background: rgba(0,0,0,0.05); padding: 0.5rem; margin-top: 0.5rem; border-radius: 4px; overflow-x: auto; font-size: 0.85em;"><%= exception.backtrace.first(10).join("\n") %></pre>
+            </details>
+          <% end %>
         <% end %>
       </div>
     <% end %>

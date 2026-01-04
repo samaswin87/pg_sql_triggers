@@ -208,12 +208,12 @@ config.permission_checker = ->(actor, action, environment) {
   return false unless user
 
   case action
-  when :view
-    user.present?
-  when :operate
-    user.operator? || user.admin?
-  when :admin
-    user.admin?
+  when :view_triggers, :view_diffs
+    user.present? # Viewer level
+  when :enable_trigger, :disable_trigger, :apply_trigger, :generate_trigger, :test_trigger, :dry_run_sql
+    user.operator? || user.admin? # Operator level
+  when :drop_trigger, :execute_sql, :override_drift
+    user.admin? # Admin level
   else
     false
   end

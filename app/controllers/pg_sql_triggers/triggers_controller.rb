@@ -18,7 +18,7 @@ module PgSqlTriggers
       # Check kill switch before enabling trigger
       check_kill_switch(operation: :ui_trigger_enable, confirmation: params[:confirmation_text])
 
-      @trigger.enable!(confirmation: params[:confirmation_text])
+      @trigger.enable!(confirmation: params[:confirmation_text], actor: current_actor)
       flash[:success] = "Trigger '#{@trigger.trigger_name}' enabled successfully."
       redirect_to redirect_path
     rescue PgSqlTriggers::KillSwitchError => e
@@ -34,7 +34,7 @@ module PgSqlTriggers
       # Check kill switch before disabling trigger
       check_kill_switch(operation: :ui_trigger_disable, confirmation: params[:confirmation_text])
 
-      @trigger.disable!(confirmation: params[:confirmation_text])
+      @trigger.disable!(confirmation: params[:confirmation_text], actor: current_actor)
       flash[:success] = "Trigger '#{@trigger.trigger_name}' disabled successfully."
       redirect_to redirect_path
     rescue PgSqlTriggers::KillSwitchError => e
@@ -117,24 +117,6 @@ module PgSqlTriggers
     rescue ActiveRecord::RecordNotFound
       flash[:error] = "Trigger not found."
       redirect_to root_path
-    end
-
-    def check_viewer_permission
-      return if PgSqlTriggers::Permissions.can?(current_actor, :view_triggers)
-
-      redirect_to root_path, alert: "Insufficient permissions. Viewer role required."
-    end
-
-    def check_operator_permission
-      return if PgSqlTriggers::Permissions.can?(current_actor, :enable_trigger)
-
-      redirect_to root_path, alert: "Insufficient permissions. Operator role required."
-    end
-
-    def check_admin_permission
-      return if PgSqlTriggers::Permissions.can?(current_actor, :drop_trigger)
-
-      redirect_to root_path, alert: "Insufficient permissions. Admin role required."
     end
 
     def redirect_path

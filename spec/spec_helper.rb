@@ -165,6 +165,30 @@ RSpec.configure do |config|
       ActiveRecord::Base.connection.add_index "trigger_migrations", :version, unique: true
     end
 
+    unless ActiveRecord::Base.connection.table_exists?("pg_sql_triggers_audit_log")
+      ActiveRecord::Base.connection.create_table "pg_sql_triggers_audit_log" do |t|
+        t.string :trigger_name
+        t.string :operation, null: false
+        t.jsonb :actor
+        t.string :environment
+        t.string :status, null: false
+        t.text :reason
+        t.string :confirmation_text
+        t.jsonb :before_state
+        t.jsonb :after_state
+        t.text :diff
+        t.text :error_message
+        t.timestamps
+      end
+
+      ActiveRecord::Base.connection.add_index "pg_sql_triggers_audit_log", :trigger_name
+      ActiveRecord::Base.connection.add_index "pg_sql_triggers_audit_log", :operation
+      ActiveRecord::Base.connection.add_index "pg_sql_triggers_audit_log", :status
+      ActiveRecord::Base.connection.add_index "pg_sql_triggers_audit_log", :environment
+      ActiveRecord::Base.connection.add_index "pg_sql_triggers_audit_log", :created_at
+      ActiveRecord::Base.connection.add_index "pg_sql_triggers_audit_log", [:trigger_name, :created_at]
+    end
+
     # Configure DatabaseCleaner
     # Allow cleaning even when ENV['RAILS_ENV'] or ENV['RACK_ENV'] is set to production in tests
     DatabaseCleaner.allow_remote_database_url = true

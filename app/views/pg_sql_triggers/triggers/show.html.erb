@@ -1,7 +1,17 @@
-<div style="margin-bottom: 2rem;">
-  <h2>Trigger Details: <%= @trigger.trigger_name %></h2>
-  <%= link_to "← Back to Dashboard", dashboard_path, class: "btn", style: "background: #6c757d; color: white; text-decoration: none; margin-right: 1rem;" %>
-  <%= link_to "View Table", table_path(@trigger.table_name), class: "btn", style: "background: #007bff; color: white; text-decoration: none;" %>
+<!-- Breadcrumb Navigation -->
+<div style="margin-bottom: 1rem; color: #6c757d; font-size: 0.875rem;">
+  <%= link_to "Dashboard", dashboard_path, style: "color: #007bff; text-decoration: none;" %> /
+  <%= link_to "Tables", tables_path, style: "color: #007bff; text-decoration: none;" %> /
+  <%= link_to @trigger.table_name, table_path(@trigger.table_name), style: "color: #007bff; text-decoration: none;" %> /
+  <span style="color: #495057; font-weight: 600;"><%= @trigger.trigger_name %></span>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+  <h2 style="margin: 0;">Trigger Details: <%= @trigger.trigger_name %></h2>
+  <div style="display: flex; gap: 0.5rem;">
+    <%= link_to "← Back to Dashboard", dashboard_path, class: "btn", style: "background: #6c757d; color: white; text-decoration: none; padding: 0.5rem 1rem;" %>
+    <%= link_to "View Table", table_path(@trigger.table_name), class: "btn", style: "background: #007bff; color: white; text-decoration: none; padding: 0.5rem 1rem;" %>
+  </div>
 </div>
 
 <!-- Drift Warning -->
@@ -55,8 +65,18 @@
 
   <% if @trigger.installed_at.present? %>
     <div style="margin-bottom: 1rem;">
-      <div style="color: #6c757d; font-size: 0.875rem; margin-bottom: 0.25rem;">Installed At</div>
-      <div><%= @trigger.installed_at.strftime("%Y-%m-%d %H:%M:%S %Z") %></div>
+      <div style="color: #6c757d; font-size: 0.875rem; margin-bottom: 0.25rem;">Last Applied</div>
+      <div title="<%= @trigger.installed_at.strftime("%Y-%m-%d %H:%M:%S %Z") %>">
+        <%= distance_of_time_in_words_to_now(@trigger.installed_at) %> ago
+        <small style="color: #6c757d;">(<%= @trigger.installed_at.strftime("%Y-%m-%d %H:%M:%S") %>)</small>
+      </div>
+    </div>
+  <% end %>
+
+  <% if @trigger.last_verified_at.present? %>
+    <div style="margin-bottom: 1rem;">
+      <div style="color: #6c757d; font-size: 0.875rem; margin-bottom: 0.25rem;">Last Verified</div>
+      <div><%= @trigger.last_verified_at.strftime("%Y-%m-%d %H:%M:%S %Z") %></div>
     </div>
   <% end %>
 

@@ -327,9 +327,62 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
         expect(assigns(:drift_info)).to have_key(:drift_type)
       end
 
+      it "includes expected_sql and actual_sql in drift_info" do
+        get :show, params: { id: trigger.id }
+        expect(assigns(:drift_info)).to have_key(:expected_sql)
+        expect(assigns(:drift_info)).to have_key(:actual_sql)
+      end
+
       it "renders the show template" do
         get :show, params: { id: trigger.id }
         expect(response).to render_template(:show)
+      end
+
+      it "returns successful response" do
+        get :show, params: { id: trigger.id }
+        expect(response).to have_http_status(:success)
+      end
+
+      context "when trigger has drift" do
+        before do
+          drift_summary = {
+            triggers: [
+              {
+                trigger_name: trigger.trigger_name,
+                drift_type: "checksum_mismatch",
+                expected_sql: "CREATE FUNCTION...",
+                actual_sql: "CREATE FUNCTION..."
+              }
+            ]
+          }
+          allow_any_instance_of(PgSqlTriggers::Drift::Reporter).to receive(:summary).and_return(drift_summary)
+        end
+
+        it "detects drift" do
+          get :show, params: { id: trigger.id }
+          expect(assigns(:drift_info)[:has_drift]).to be true
+          expect(assigns(:drift_info)[:drift_type]).to eq("checksum_mismatch")
+        end
+
+        it "includes expected and actual SQL" do
+          get :show, params: { id: trigger.id }
+          expect(assigns(:drift_info)[:expected_sql]).to be_present
+          expect(assigns(:drift_info)[:actual_sql]).to be_present
+        end
+      end
+
+      context "when trigger is in sync" do
+        before do
+          drift_summary = {
+            triggers: []
+          }
+          allow_any_instance_of(PgSqlTriggers::Drift::Reporter).to receive(:summary).and_return(drift_summary)
+        end
+
+        it "shows no drift" do
+          get :show, params: { id: trigger.id }
+          expect(assigns(:drift_info)[:has_drift]).to be false
+        end
       end
     end
 
@@ -338,6 +391,11 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
         get :show, params: { id: 99_999 }
         expect(flash[:error]).to eq("Trigger not found.")
         expect(response).to redirect_to(root_path)
+      end
+
+      it "does not attempt to calculate drift" do
+        expect_any_instance_of(PgSqlTriggers::Drift::Reporter).not_to receive(:summary)
+        get :show, params: { id: 99_999 }
       end
     end
 
@@ -352,10 +410,21 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
         expect(flash[:alert]).to include("Viewer role required")
         expect(response).to redirect_to(root_path)
       end
+
+      it "does not load the trigger" do
+        get :show, params: { id: trigger.id }
+        expect(assigns(:trigger)).to be_nil
+      end
+
+      it "does not calculate drift" do
+        expect_any_instance_of(PgSqlTriggers::Drift::Reporter).not_to receive(:summary)
+        get :show, params: { id: trigger.id }
+      end
     end
 
     context "when drift calculation fails" do
       before do
+        allow(Rails.logger).to receive(:error)
         allow_any_instance_of(PgSqlTriggers::Drift::Reporter).to receive(:summary).and_raise(StandardError.new("DB error"))
       end
 
@@ -367,6 +436,11 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
       it "logs the error" do
         get :show, params: { id: trigger.id }
         expect(Rails.logger).to have_received(:error).with(/Failed to calculate drift/)
+      end
+
+      it "still renders the show template" do
+        get :show, params: { id: trigger.id }
+        expect(response).to render_template(:show)
       end
     end
   end

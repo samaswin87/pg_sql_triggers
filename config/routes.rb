@@ -37,6 +37,8 @@ begin
         post :re_execute
       end
     end
+
+    resources :audit_logs, only: [:index]
   end
 rescue ArgumentError => e
   # Ignore duplicate route errors (routes may already be drawn in tests)

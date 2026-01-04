@@ -9,6 +9,7 @@ Complete reference for using PgSqlTriggers programmatically from the Rails conso
 - [Kill Switch API](#kill-switch-api)
 - [DSL API](#dsl-api)
 - [TriggerRegistry Model](#triggerregistry-model)
+- [Audit Log API](#audit-log-api)
 
 ## Registry API
 
@@ -920,6 +921,118 @@ rescue StandardError => e
   puts "Unexpected error: #{e.message}"
   puts e.backtrace.first(5)
 end
+```
+
+## Audit Log API
+
+The Audit Log API provides methods for querying and managing audit log entries.
+
+### `PgSqlTriggers::AuditLog`
+
+The `AuditLog` model provides methods for querying audit log entries.
+
+#### Class Methods
+
+##### `AuditLog.for_trigger_name(trigger_name)`
+
+Get audit log entries for a specific trigger.
+
+**Parameters:**
+- `trigger_name` (String): The trigger name to query
+
+**Returns:** `ActiveRecord::Relation` - Audit log entries for the trigger, ordered by most recent first
+
+**Example:**
+```ruby
+# Get all audit log entries for a specific trigger
+entries = PgSqlTriggers::AuditLog.for_trigger_name("users_email_validation")
+entries.each do |entry|
+  puts "#{entry.operation}: #{entry.status} at #{entry.created_at}"
+end
+```
+
+##### `AuditLog.log_success(...)`
+
+Log a successful operation to the audit log.
+
+**Parameters:**
+- `operation:` (Symbol, String): The operation being performed (e.g., `:trigger_enable`)
+- `trigger_name:` (String, nil): The trigger name (if applicable)
+- `actor:` (Hash): Information about who performed the action (e.g., `{ type: "UI", id: "123" }`)
+- `environment:` (String, nil): The environment
+- `reason:` (String, nil): Reason for the operation
+- `confirmation_text:` (String, nil): Confirmation text used
+- `before_state:` (Hash, nil): State before operation
+- `after_state:` (Hash, nil): State after operation
+- `diff:` (String, nil): Diff information
+
+**Returns:** `AuditLog` instance or `nil` if logging fails
+
+**Example:**
+```ruby
+PgSqlTriggers::AuditLog.log_success(
+  operation: :trigger_enable,
+  trigger_name: "users_email_validation",
+  actor: { type: "Console", id: "admin@example.com" },
+  environment: "production",
+  before_state: { enabled: false },
+  after_state: { enabled: true }
+)
+```
+
+##### `AuditLog.log_failure(...)`
+
+Log a failed operation to the audit log.
+
+**Parameters:**
+- `operation:` (Symbol, String): The operation being performed
+- `trigger_name:` (String, nil): The trigger name (if applicable)
+- `actor:` (Hash): Information about who performed the action
+- `environment:` (String, nil): The environment
+- `error_message:` (String): Error message (required)
+- `reason:` (String, nil): Reason for the operation (if provided before failure)
+- `confirmation_text:` (String, nil): Confirmation text used
+- `before_state:` (Hash, nil): State before operation
+
+**Returns:** `AuditLog` instance or `nil` if logging fails
+
+**Example:**
+```ruby
+PgSqlTriggers::AuditLog.log_failure(
+  operation: :trigger_enable,
+  trigger_name: "users_email_validation",
+  actor: { type: "UI", id: "user_123" },
+  environment: "production",
+  error_message: "Trigger does not exist in database",
+  before_state: { enabled: false }
+)
+```
+
+#### Scopes
+
+The `AuditLog` model provides several useful scopes:
+
+- `AuditLog.for_trigger(trigger_name)` - Filter by trigger name
+- `AuditLog.for_operation(operation)` - Filter by operation type
+- `AuditLog.for_environment(env)` - Filter by environment
+- `AuditLog.successful` - Only successful operations
+- `AuditLog.failed` - Only failed operations
+- `AuditLog.recent` - Order by most recent first
+
+**Example:**
+```ruby
+# Get all failed operations in production
+failed_ops = PgSqlTriggers::AuditLog
+  .failed
+  .for_environment("production")
+  .recent
+  .limit(10)
+
+# Get all enable operations for a trigger
+enable_ops = PgSqlTriggers::AuditLog
+  .for_trigger("users_email_validation")
+  .for_operation("trigger_enable")
+  .recent
 ```
 
 ## Next Steps

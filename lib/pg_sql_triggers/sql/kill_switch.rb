@@ -143,14 +143,22 @@ module PgSqlTriggers
           expected = expected_confirmation(operation)
 
           if confirmation.nil? || confirmation.strip.empty?
-            raise PgSqlTriggers::KillSwitchError,
-                  "Confirmation text required. Expected: '#{expected}'"
+            raise PgSqlTriggers::KillSwitchError.new(
+              "Confirmation text required. Expected: '#{expected}'",
+              error_code: "KILL_SWITCH_CONFIRMATION_REQUIRED",
+              recovery_suggestion: "Provide the confirmation text: #{expected}",
+              context: { operation: operation, expected_confirmation: expected }
+            )
           end
 
           return if confirmation.strip == expected
 
-          raise PgSqlTriggers::KillSwitchError,
-                "Invalid confirmation text. Expected: '#{expected}', got: '#{confirmation.strip}'"
+          raise PgSqlTriggers::KillSwitchError.new(
+            "Invalid confirmation text. Expected: '#{expected}', got: '#{confirmation.strip}'",
+            error_code: "KILL_SWITCH_CONFIRMATION_INVALID",
+            recovery_suggestion: "Use the exact confirmation text: #{expected}",
+            context: { operation: operation, expected_confirmation: expected, provided_confirmation: confirmation.strip }
+          )
         end
 
         private
@@ -291,7 +299,26 @@ module PgSqlTriggers
             Make sure you understand the implications before proceeding.
           ERROR
 
-          raise PgSqlTriggers::KillSwitchError, message
+          recovery = <<~RECOVERY
+            To override, provide the confirmation text: #{expected}
+            
+            For CLI/rake tasks:
+              KILL_SWITCH_OVERRIDE=true CONFIRMATION_TEXT="#{expected}" rake your:task
+            
+            For console operations:
+              PgSqlTriggers::SQL::KillSwitch.override(confirmation: "#{expected}") do
+                # your operation here
+              end
+            
+            For UI operations, enter the confirmation text in the modal.
+          RECOVERY
+
+          raise PgSqlTriggers::KillSwitchError.new(
+            message,
+            error_code: "KILL_SWITCH_ACTIVE",
+            recovery_suggestion: recovery.strip,
+            context: { operation: operation, environment: environment, expected_confirmation: expected }
+          )
         end
       end
     end
