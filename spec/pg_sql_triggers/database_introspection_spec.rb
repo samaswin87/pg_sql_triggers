@@ -172,17 +172,20 @@ RSpec.describe PgSqlTriggers::DatabaseIntrospection do
   end
 
   describe "#tables_with_triggers" do
+    let(:registry_trigger) { nil }
+
     before do
-      create(:trigger_registry, :enabled, :dsl_source,
-             trigger_name: "registry_trigger",
-             table_name: "test_users",
-             checksum: "abc")
+      @registry_trigger = create(:trigger_registry, :enabled, :dsl_source,
+                                  trigger_name: "tables_with_triggers_registry_trigger",
+                                  table_name: "test_users",
+                                  checksum: "abc")
 
       ActiveRecord::Base.connection.execute("CREATE OR REPLACE FUNCTION db_trigger_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;")
       ActiveRecord::Base.connection.execute("CREATE TRIGGER db_trigger BEFORE INSERT ON test_posts FOR EACH ROW EXECUTE FUNCTION db_trigger_function();")
     end
 
     after do
+      @registry_trigger&.destroy
       ActiveRecord::Base.connection.execute("DROP TRIGGER IF EXISTS db_trigger ON test_posts")
       ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS db_trigger_function()")
     end
@@ -191,7 +194,7 @@ RSpec.describe PgSqlTriggers::DatabaseIntrospection do
       tables = introspection.tables_with_triggers
       users_table = tables.find { |t| t[:table_name] == "test_users" }
       expect(users_table).to be_present
-      expect(users_table[:registry_triggers].pluck(:trigger_name)).to include("registry_trigger")
+      expect(users_table[:registry_triggers].pluck(:trigger_name)).to include("tables_with_triggers_registry_trigger")
     end
 
     it "includes database triggers" do
@@ -231,17 +234,20 @@ RSpec.describe PgSqlTriggers::DatabaseIntrospection do
   end
 
   describe "#table_triggers" do
+    let(:registry_trigger) { nil }
+
     before do
-      create(:trigger_registry, :enabled, :dsl_source,
-             trigger_name: "registry_trigger",
-             table_name: "test_users",
-             checksum: "abc")
+      @registry_trigger = create(:trigger_registry, :enabled, :dsl_source,
+                                  trigger_name: "table_triggers_registry_trigger",
+                                  table_name: "test_users",
+                                  checksum: "abc")
 
       ActiveRecord::Base.connection.execute("CREATE OR REPLACE FUNCTION db_trigger_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;")
       ActiveRecord::Base.connection.execute("CREATE TRIGGER db_trigger BEFORE INSERT ON test_users FOR EACH ROW EXECUTE FUNCTION db_trigger_function();")
     end
 
     after do
+      @registry_trigger&.destroy
       ActiveRecord::Base.connection.execute("DROP TRIGGER IF EXISTS db_trigger ON test_users")
       ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS db_trigger_function()")
     end
@@ -249,7 +255,7 @@ RSpec.describe PgSqlTriggers::DatabaseIntrospection do
     it "returns registry triggers for table" do
       result = introspection.table_triggers("test_users")
       expect(result[:table_name]).to eq("test_users")
-      expect(result[:registry_triggers].map(&:trigger_name)).to include("registry_trigger")
+      expect(result[:registry_triggers].map(&:trigger_name)).to include("table_triggers_registry_trigger")
     end
 
     it "returns database triggers for table" do

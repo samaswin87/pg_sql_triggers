@@ -294,6 +294,8 @@ RSpec.describe PgSqlTriggers::SQL::Executor do
 
   describe ".execute_capsule" do
     before do
+      # Clean up any existing registry entries for this capsule
+      PgSqlTriggers::TriggerRegistry.where(trigger_name: "sql_capsule_existing").destroy_all
       # Create a capsule in the registry
       create(:trigger_registry, :enabled, :manual_sql_source, :production,
              trigger_name: "sql_capsule_existing",
