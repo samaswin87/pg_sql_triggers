@@ -1,15 +1,12 @@
 # frozen_string_literal: true
 
 require_relative "pg_sql_triggers/version"
+require_relative "pg_sql_triggers/errors"
 require_relative "pg_sql_triggers/engine"
 
 module PgSqlTriggers
-  class Error < StandardError; end
-  class PermissionError < Error; end
-  class DriftError < Error; end
-  class KillSwitchError < Error; end
-  class ValidationError < Error; end
-  class UnsafeMigrationError < Error; end
+  # Error classes are defined in lib/pg_sql_triggers/errors.rb
+  # They include error codes, standardized messages, and recovery suggestions
 
   # Configuration
   mattr_accessor :kill_switch_enabled

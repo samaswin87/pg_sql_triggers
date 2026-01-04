@@ -7,6 +7,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0]
+
+### Added
+- **Enhanced Console API**: Added missing drift query methods to Registry API for consistency
+  - `PgSqlTriggers::Registry.drifted` - Returns all drifted triggers
+  - `PgSqlTriggers::Registry.in_sync` - Returns all in-sync triggers
+  - `PgSqlTriggers::Registry.unknown_triggers` - Returns all unknown (external) triggers
+  - `PgSqlTriggers::Registry.dropped` - Returns all dropped triggers
+  - All console APIs now follow consistent naming conventions (query methods vs action methods)
+
+- **Controller Concerns**: Extracted common controller functionality into reusable concerns
+  - `KillSwitchProtection` concern - Handles kill switch checking and confirmation helpers
+  - `PermissionChecking` concern - Handles permission checks and actor management
+  - `ErrorHandling` concern - Handles error formatting and flash message helpers
+  - All controllers now inherit from `ApplicationController` which includes these concerns
+  - Improved code organization and maintainability
+
+- **YARD Documentation**: Comprehensive YARD documentation added to all public APIs
+  - `PgSqlTriggers::Registry` module - All public methods fully documented
+  - `PgSqlTriggers::TriggerRegistry` model - All public methods fully documented
+  - `PgSqlTriggers::Generator::Service` - All public class methods fully documented
+  - `PgSqlTriggers::SQL::Executor` - Already had documentation (verified)
+  - All documentation includes parameter types, return values, and examples
+
+### Added
+- **Complete UI Action Buttons**: All trigger operations now accessible via web UI
+  - Enable/Disable buttons in dashboard and table detail views
+  - Drop trigger button with confirmation modal (Admin permission required)
+  - Re-execute trigger button with drift diff display (Admin permission required)
+  - All buttons respect permission checks and show/hide based on user role
+  - Kill switch integration with confirmation modals for all actions
+  - Buttons styled with environment-aware colors (warning colors for production)
+
+- **Enhanced Dashboard**:
+  - "Last Applied" column showing `installed_at` timestamps in human-readable format
+  - Tooltips with exact timestamps on hover
+  - Default sorting by `installed_at` (most recent first)
+  - Drop and Re-execute buttons in dashboard table (Admin only)
+  - Permission-aware button visibility throughout
+
+- **Trigger Detail Page Enhancements**:
+  - Breadcrumb navigation (Dashboard → Tables → Table → Trigger)
+  - Enhanced `installed_at` display with relative time formatting
+  - `last_verified_at` timestamp display
+  - All action buttons (enable/disable/drop/re-execute) accessible from detail page
+
+- **Comprehensive Audit Logging System**:
+  - New `pg_sql_triggers_audit_log` table for tracking all operations
+  - `AuditLog` model with logging methods (`log_success`, `log_failure`)
+  - Audit logging integrated into all trigger operations:
+    - `enable!` - logs success/failure with before/after state
+    - `disable!` - logs success/failure with before/after state  
+    - `drop!` - logs success/failure with reason and state changes
+    - `re_execute!` - logs success/failure with drift diff information
+  - All operations track actor (who performed the action)
+  - Complete state capture (before/after) for all operations
+  - Error messages logged for failed operations
+  - Environment and confirmation text tracking
+
+- **Enhanced Actor Tracking**:
+  - All trigger operations now accept `actor` parameter
+  - Console APIs updated to pass actor information
+  - UI controllers pass `current_actor` to all operations
+  - Actor information stored in audit logs for complete audit trail
+
+- **Permissions Enforcement System**:
+  - Permission checks enforced across all controllers (Viewer, Operator, Admin)
+  - `PermissionsHelper` module for view-level permission checks
+  - Permission helper methods in `ApplicationController` for consistent authorization
+  - All UI buttons and actions respect permission levels
+  - Console APIs (`Registry.enable/disable/drop/re_execute`, `SQL::Executor.execute`) check permissions
+  - Permission errors raise `PermissionError` with clear messages
+  - Configurable permission checker via `permission_checker` configuration option
+
+- **Enhanced Error Handling System**:
+  - Comprehensive error hierarchy with base `Error` class and specialized error types
+  - Error classes: `PermissionError`, `KillSwitchError`, `DriftError`, `ValidationError`, `ExecutionError`, `UnsafeMigrationError`, `NotFoundError`
+  - Error codes for programmatic handling (e.g., `PERMISSION_DENIED`, `KILL_SWITCH_ACTIVE`, `DRIFT_DETECTED`)
+  - Standardized error messages with recovery suggestions
+  - Enhanced error display in UI with user-friendly formatting
+  - Context information included in all errors for better debugging
+  - Error handling helpers in `ApplicationController` for consistent error formatting
+
+- **Comprehensive Documentation**:
+  - New `ui-guide.md` - Quick start guide for web interface
+  - New `permissions.md` - Complete guide to configuring and using permissions
+  - New `audit-trail.md` - Guide to viewing and exporting audit logs
+  - New `troubleshooting.md` - Common issues and solutions with error code reference
+  - Updated documentation index with links to all new guides
+
+- **Audit Log UI**:
+  - Web interface for viewing audit log entries (`/audit_logs`)
+  - Filterable by trigger name, operation, status, and environment
+  - Sortable by date (ascending/descending)
+  - Pagination support (default 50 entries per page, max 200)
+  - CSV export functionality with applied filters
+  - Comprehensive view showing operation details, actor information, status, and error messages
+  - Links to trigger detail pages from audit log entries
+  - Navigation menu integration
+
+### Changed
+- **Code Organization**: Refactored `ApplicationController` to use concerns instead of inline methods
+  - Reduced code duplication across controllers
+  - Improved separation of concerns
+  - Better testability and maintainability
+
+- **Service Object Patterns**: Standardized service object patterns across all service classes
+  - All service objects follow consistent class method patterns
+  - Consistent stateless service object conventions
+
+- **Goal.md**: Updated to reflect actual implementation status
+  - Added technical notes documenting improvements
+  - Updated console API section with all implemented methods
+  - Documented code organization improvements
+
+- Dashboard default sorting changed to `installed_at` (most recent first) instead of `created_at`
+- Trigger detail page breadcrumbs improved navigation flow
+- All trigger action buttons use consistent styling and permission checks
+
+### Fixed
+- Actor tracking now properly passed through all operation methods
+- Improved error handling with audit log integration
+
+### Security
+- All operations now tracked in audit log for compliance and debugging
+- Actor information captured for all operations (UI, Console, CLI)
+- Complete state change tracking for audit trail
+- Permission enforcement ensures only authorized users can perform operations
+- Permission checks enforced at controller, API, and view levels
+
 ## [1.2.0] - 2026-01-02
 
 ### Added

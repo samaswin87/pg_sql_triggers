@@ -1,6 +1,26 @@
 # frozen_string_literal: true
 
 module PgSqlTriggers
+  # ActiveRecord model representing a trigger in the registry.
+  #
+  # This model tracks all triggers managed by pg_sql_triggers, including their
+  # state, version, checksum, and drift status.
+  #
+  # @example Query triggers
+  #   # Find a trigger
+  #   trigger = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "users_email_validation")
+  #
+  #   # Check drift status
+  #   trigger.drifted?  # => true/false
+  #   trigger.in_sync?  # => true/false
+  #
+  # @example Enable/disable triggers
+  #   trigger.enable!(actor: current_user, confirmation: "EXECUTE TRIGGER_ENABLE")
+  #   trigger.disable!(actor: current_user, confirmation: "EXECUTE TRIGGER_DISABLE")
+  #
+  # @example Drop and re-execute triggers
+  #   trigger.drop!(reason: "No longer needed", actor: current_user, confirmation: "EXECUTE TRIGGER_DROP")
+  #   trigger.re_execute!(reason: "Fix drift", actor: current_user, confirmation: "EXECUTE TRIGGER_RE_EXECUTE")
   # rubocop:disable Metrics/ClassLength
   class TriggerRegistry < PgSqlTriggers::ApplicationRecord
     self.table_name = "pg_sql_triggers_registry"
@@ -19,36 +39,59 @@ module PgSqlTriggers
     scope :for_environment, ->(env) { where(environment: [env, nil]) }
     scope :by_source, ->(source) { where(source: source) }
 
-    # Drift detection methods
+    # Returns the current drift state of this trigger.
+    #
+    # @return [String] One of: "in_sync", "drifted", "manual_override", "disabled", "dropped", "unknown"
     def drift_state
       result = PgSqlTriggers::Drift.detect(trigger_name)
       result[:state]
     end
 
+    # Returns detailed drift detection result for this trigger.
+    #
+    # @return [Hash] Drift result with keys: :state, :trigger_name, :expected_sql, :actual_sql, etc.
     def drift_result
       PgSqlTriggers::Drift::Detector.detect(trigger_name)
     end
 
+    # Checks if this trigger has drifted from its expected state.
+    #
+    # @return [Boolean] true if trigger has drifted, false otherwise
     def drifted?
       drift_state == PgSqlTriggers::DRIFT_STATE_DRIFTED
     end
 
+    # Checks if this trigger is in sync with its expected state.
+    #
+    # @return [Boolean] true if trigger is in sync, false otherwise
     def in_sync?
       drift_state == PgSqlTriggers::DRIFT_STATE_IN_SYNC
     end
 
+    # Checks if this trigger has been dropped from the database.
+    #
+    # @return [Boolean] true if trigger has been dropped, false otherwise
     def dropped?
       drift_state == PgSqlTriggers::DRIFT_STATE_DROPPED
     end
 
-    def enable!(confirmation: nil)
+    # Enables this trigger in the database and updates the registry.
+    #
+    # @param confirmation [String, nil] Optional confirmation text for kill switch protection
+    # @param actor [Hash, nil] Information about who is performing the action (must have :type and :id keys)
+    # @raise [PgSqlTriggers::KillSwitchError] If kill switch blocks the operation
+    # @return [PgSqlTriggers::TriggerRegistry] self
+    def enable!(confirmation: nil, actor: nil)
+      actor ||= { type: "Console", id: "TriggerRegistry#enable!" }
+      before_state = capture_state
+
       # Check kill switch before enabling trigger
       # Use Rails.env for kill switch check, not the trigger's environment field
       PgSqlTriggers::SQL::KillSwitch.check!(
         operation: :trigger_enable,
         environment: Rails.env,
         confirmation: confirmation,
-        actor: { type: "Console", id: "TriggerRegistry#enable!" }
+        actor: actor
       )
 
       # Check if trigger exists in database before trying to enable it
@@ -71,12 +114,16 @@ module PgSqlTriggers
         rescue ActiveRecord::StatementInvalid, StandardError => e
           # If trigger doesn't exist or can't be enabled, continue to update registry
           Rails.logger.warn("Could not enable trigger: #{e.message}") if defined?(Rails.logger)
+          log_audit_failure(:trigger_enable, actor, e.message, before_state: before_state)
+          raise
         end
       end
 
       # Update the registry record (always update, even if trigger doesn't exist)
       begin
         update!(enabled: true)
+        after_state = capture_state
+        log_audit_success(:trigger_enable, actor, before_state: before_state, after_state: after_state)
       rescue ActiveRecord::StatementInvalid, StandardError => e
         # If update! fails, try update_column which bypasses validations and callbacks
         # and might not use execute in the same way
@@ -85,6 +132,8 @@ module PgSqlTriggers
           # rubocop:disable Rails/SkipsModelValidations
           update_column(:enabled, true)
           # rubocop:enable Rails/SkipsModelValidations
+          after_state = capture_state
+          log_audit_success(:trigger_enable, actor, before_state: before_state, after_state: after_state)
         rescue StandardError => update_error
           # If update_column also fails, just set the in-memory attribute
           # The test might reload, but we've done our best
@@ -92,18 +141,29 @@ module PgSqlTriggers
           Rails.logger.warn("Could not update registry via update_column: #{update_error.message}") if defined?(Rails.logger)
           # rubocop:enable Layout/LineLength
           self.enabled = true
+          after_state = capture_state
+          log_audit_success(:trigger_enable, actor, before_state: before_state, after_state: after_state)
         end
       end
     end
 
-    def disable!(confirmation: nil)
+    # Disables this trigger in the database and updates the registry.
+    #
+    # @param confirmation [String, nil] Optional confirmation text for kill switch protection
+    # @param actor [Hash, nil] Information about who is performing the action (must have :type and :id keys)
+    # @raise [PgSqlTriggers::KillSwitchError] If kill switch blocks the operation
+    # @return [PgSqlTriggers::TriggerRegistry] self
+    def disable!(confirmation: nil, actor: nil)
+      actor ||= { type: "Console", id: "TriggerRegistry#disable!" }
+      before_state = capture_state
+
       # Check kill switch before disabling trigger
       # Use Rails.env for kill switch check, not the trigger's environment field
       PgSqlTriggers::SQL::KillSwitch.check!(
         operation: :trigger_disable,
         environment: Rails.env,
         confirmation: confirmation,
-        actor: { type: "Console", id: "TriggerRegistry#disable!" }
+        actor: actor
       )
 
       # Check if trigger exists in database before trying to disable it
@@ -126,12 +186,16 @@ module PgSqlTriggers
         rescue ActiveRecord::StatementInvalid, StandardError => e
           # If trigger doesn't exist or can't be disabled, continue to update registry
           Rails.logger.warn("Could not disable trigger: #{e.message}") if defined?(Rails.logger)
+          log_audit_failure(:trigger_disable, actor, e.message, before_state: before_state)
+          raise
         end
       end
 
       # Update the registry record (always update, even if trigger doesn't exist)
       begin
         update!(enabled: false)
+        after_state = capture_state
+        log_audit_success(:trigger_disable, actor, before_state: before_state, after_state: after_state)
       rescue ActiveRecord::StatementInvalid, StandardError => e
         # If update! fails, try update_column which bypasses validations and callbacks
         # and might not use execute in the same way
@@ -140,6 +204,8 @@ module PgSqlTriggers
           # rubocop:disable Rails/SkipsModelValidations
           update_column(:enabled, false)
           # rubocop:enable Rails/SkipsModelValidations
+          after_state = capture_state
+          log_audit_success(:trigger_disable, actor, before_state: before_state, after_state: after_state)
         rescue StandardError => update_error
           # If update_column also fails, just set the in-memory attribute
           # The test might reload, but we've done our best
@@ -147,17 +213,30 @@ module PgSqlTriggers
           Rails.logger.warn("Could not update registry via update_column: #{update_error.message}") if defined?(Rails.logger)
           # rubocop:enable Layout/LineLength
           self.enabled = false
+          after_state = capture_state
+          log_audit_success(:trigger_disable, actor, before_state: before_state, after_state: after_state)
         end
       end
     end
 
+    # Drops this trigger from the database and removes it from the registry.
+    #
+    # @param reason [String] Required reason for dropping the trigger
+    # @param confirmation [String, nil] Optional confirmation text for kill switch protection
+    # @param actor [Hash, nil] Information about who is performing the action (must have :type and :id keys)
+    # @raise [ArgumentError] If reason is missing or empty
+    # @raise [PgSqlTriggers::KillSwitchError] If kill switch blocks the operation
+    # @return [true] If drop succeeds
     def drop!(reason:, confirmation: nil, actor: nil)
+      actor ||= { type: "Console", id: "TriggerRegistry#drop!" }
+      before_state = capture_state
+
       # Check kill switch before dropping trigger
       PgSqlTriggers::SQL::KillSwitch.check!(
         operation: :trigger_drop,
         environment: Rails.env,
         confirmation: confirmation,
-        actor: actor || { type: "Console", id: "TriggerRegistry#drop!" }
+        actor: actor
       )
 
       # Validate reason is provided
@@ -168,18 +247,41 @@ module PgSqlTriggers
       # Execute DROP TRIGGER in transaction
       ActiveRecord::Base.transaction do
         drop_trigger_from_database
+        trigger_name
         destroy!
         log_drop_success
+        log_audit_success(:trigger_drop, actor, reason: reason, confirmation_text: confirmation,
+                                                before_state: before_state, after_state: { status: "dropped" })
       end
+    rescue StandardError => e
+      log_audit_failure(:trigger_drop, actor, e.message, reason: reason,
+                                                         confirmation_text: confirmation, before_state: before_state)
+      raise
     end
 
+    # Re-executes this trigger by dropping and recreating it.
+    #
+    # @param reason [String] Required reason for re-executing the trigger
+    # @param confirmation [String, nil] Optional confirmation text for kill switch protection
+    # @param actor [Hash, nil] Information about who is performing the action (must have :type and :id keys)
+    # @raise [ArgumentError] If reason is missing or empty, or if function_body is blank
+    # @raise [PgSqlTriggers::KillSwitchError] If kill switch blocks the operation
+    # @return [PgSqlTriggers::TriggerRegistry] self
     def re_execute!(reason:, confirmation: nil, actor: nil)
+      actor ||= { type: "Console", id: "TriggerRegistry#re_execute!" }
+      before_state = capture_state
+      drift_info = begin
+        drift_result
+      rescue StandardError
+        nil
+      end
+
       # Check kill switch before re-executing trigger
       PgSqlTriggers::SQL::KillSwitch.check!(
         operation: :trigger_re_execute,
         environment: Rails.env,
         confirmation: confirmation,
-        actor: actor || { type: "Console", id: "TriggerRegistry#re_execute!" }
+        actor: actor
       )
 
       # Validate reason is provided
@@ -193,7 +295,18 @@ module PgSqlTriggers
         drop_existing_trigger_for_re_execute
         recreate_trigger
         update_registry_after_re_execute
+        after_state = capture_state
+        diff = drift_info ? "#{drift_info[:expected_sql]} -> #{after_state[:function_body]}" : nil
+        log_audit_success(:trigger_re_execute, actor, reason: reason, confirmation_text: confirmation,
+                                                      before_state: before_state, after_state: after_state, diff: diff)
       end
+    rescue StandardError => e
+      log_audit_failure(
+        :trigger_re_execute, actor, e.message, reason: reason,
+                                               confirmation_text: confirmation,
+                                               before_state: before_state
+      )
+      raise
     end
 
     private
@@ -292,6 +405,58 @@ module PgSqlTriggers
       update!(enabled: true, last_executed_at: Time.current)
       Rails.logger.info "[TRIGGER_RE_EXECUTE] Updated registry" if defined?(Rails.logger)
     end
+
+    # Audit logging helpers
+    def capture_state
+      {
+        enabled: enabled,
+        version: version,
+        checksum: checksum,
+        table_name: table_name,
+        source: source,
+        environment: environment,
+        installed_at: installed_at&.iso8601
+      }
+    end
+
+    # rubocop:disable Metrics/ParameterLists
+    def log_audit_success(operation, actor, reason: nil, confirmation_text: nil,
+                          before_state: nil, after_state: nil, diff: nil)
+      return unless defined?(PgSqlTriggers::AuditLog)
+
+      PgSqlTriggers::AuditLog.log_success(
+        operation: operation,
+        trigger_name: trigger_name,
+        actor: actor,
+        environment: Rails.env,
+        reason: reason,
+        confirmation_text: confirmation_text,
+        before_state: before_state,
+        after_state: after_state,
+        diff: diff
+      )
+    rescue StandardError => e
+      Rails.logger.error("Failed to log audit entry: #{e.message}") if defined?(Rails.logger)
+    end
+
+    def log_audit_failure(operation, actor, error_message, reason: nil,
+                          confirmation_text: nil, before_state: nil)
+      return unless defined?(PgSqlTriggers::AuditLog)
+
+      PgSqlTriggers::AuditLog.log_failure(
+        operation: operation,
+        trigger_name: trigger_name,
+        actor: actor,
+        environment: Rails.env,
+        error_message: error_message,
+        reason: reason,
+        confirmation_text: confirmation_text,
+        before_state: before_state
+      )
+    rescue StandardError => e
+      Rails.logger.error("Failed to log audit entry: #{e.message}") if defined?(Rails.logger)
+    end
+    # rubocop:enable Metrics/ParameterLists
   end
   # rubocop:enable Metrics/ClassLength
 end

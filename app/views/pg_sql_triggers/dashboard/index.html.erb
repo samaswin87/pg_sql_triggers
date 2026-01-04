@@ -40,6 +40,7 @@
         <th>Version</th>
         <th>Status</th>
         <th>Source</th>
+        <th>Last Applied</th>
         <th>Actions</th>
       </tr>
     </thead>
@@ -60,11 +61,20 @@
           </td>
           <td><span class="badge badge-info"><%= trigger.source %></span></td>
           <td>
-            <% if PgSqlTriggers::Permissions.can?(current_actor, :enable_trigger) %>
-              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <% if trigger.installed_at.present? %>
+              <span title="<%= trigger.installed_at.strftime("%Y-%m-%d %H:%M:%S %Z") %>" style="cursor: help;">
+                <%= distance_of_time_in_words_to_now(trigger.installed_at) %> ago
+              </span>
+            <% else %>
+              <span style="color: #6c757d;">Never</span>
+            <% end %>
+          </td>
+          <td>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <% if PgSqlTriggers::Permissions.can?(current_actor, :enable_trigger) %>
                 <% if trigger.enabled %>
                   <% form_id = "trigger-disable-#{trigger.id}-form" %>
-                  <%= form_with url: disable_trigger_path(trigger), method: :post, local: true, id: form_id, style: "margin: 0;" do |f| %>
+                  <%= form_with url: disable_trigger_path(trigger), method: :post, local: false, id: form_id, style: "margin: 0;" do |f| %>
                     <%= f.hidden_field :redirect_to, value: dashboard_path %>
                     <button type="button" onclick="showKillSwitchModal('<%= form_id %>')"
                         style="padding: 0.25rem 0.75rem; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.75rem;">
@@ -78,7 +88,7 @@
                              message: "Are you sure you want to disable trigger '#{trigger.trigger_name}'?" %>
                 <% else %>
                   <% form_id = "trigger-enable-#{trigger.id}-form" %>
-                  <%= form_with url: enable_trigger_path(trigger), method: :post, local: true, id: form_id, style: "margin: 0;" do |f| %>
+                  <%= form_with url: enable_trigger_path(trigger), method: :post, local: false, id: form_id, style: "margin: 0;" do |f| %>
                     <%= f.hidden_field :redirect_to, value: dashboard_path %>
                     <button type="button" onclick="showKillSwitchModal('<%= form_id %>')"
                         style="padding: 0.25rem 0.75rem; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.75rem;">
@@ -91,10 +101,25 @@
                              title: 'Enable Trigger',
                              message: "Are you sure you want to enable trigger '#{trigger.trigger_name}'?" %>
                 <% end %>
-              </div>
-            <% else %>
-              —
-            <% end %>
+              <% end %>
+
+              <% if PgSqlTriggers::Permissions.can?(current_actor, :drop_trigger) %>
+                <% begin %>
+                  <% drift_info = trigger.drift_result %>
+                  <% if drift_info && drift_info[:state] == 'drifted' %>
+                    <%= render 'pg_sql_triggers/triggers/re_execute_modal', trigger: trigger, drift_info: drift_info, redirect_to: dashboard_path, button_size: :small %>
+                  <% end %>
+                <% rescue StandardError %>
+                  <%# Skip if drift detection fails %>
+                <% end %>
+
+                <%= render 'pg_sql_triggers/triggers/drop_modal', trigger: trigger, redirect_to: dashboard_path, button_size: :small %>
+              <% end %>
+
+              <% unless PgSqlTriggers::Permissions.can?(current_actor, :enable_trigger) || PgSqlTriggers::Permissions.can?(current_actor, :drop_trigger) %>
+                <span style="color: #6c757d;">—</span>
+              <% end %>
+            </div>
           </td>
         </tr>
       <% end %>

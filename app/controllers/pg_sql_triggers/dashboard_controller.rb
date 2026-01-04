@@ -5,7 +5,10 @@ module PgSqlTriggers
     before_action :check_viewer_permission
 
     def index
-      @triggers = PgSqlTriggers::TriggerRegistry.order(created_at: :desc)
+      # Sort by installed_at descending (most recent first), fallback to created_at
+      @triggers = PgSqlTriggers::TriggerRegistry.order(
+        Arel.sql("COALESCE(installed_at, created_at) DESC")
+      )
 
       # Get drift summary
       drift_summary = PgSqlTriggers::Drift::Reporter.summary
@@ -42,14 +45,6 @@ module PgSqlTriggers
         @page = 1
         @per_page = 20
       end
-    end
-
-    private
-
-    def check_viewer_permission
-      return if PgSqlTriggers::Permissions.can?(current_actor, :view_triggers)
-
-      redirect_to root_path, alert: "Insufficient permissions. Viewer role required."
     end
   end
 end

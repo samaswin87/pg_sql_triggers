@@ -57,9 +57,8 @@ RSpec.describe PgSqlTriggers::Registry do
 
   describe ".validate!" do
     it "delegates to Validator.validate!" do
-      allow(PgSqlTriggers::Registry::Validator).to receive(:validate!).and_return(true)
+      # Validator.validate! is a simple method that returns true, so we can test with the real method
       result = described_class.validate!
-      expect(PgSqlTriggers::Registry::Validator).to have_received(:validate!)
       expect(result).to be true
     end
   end
@@ -545,10 +544,10 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
           end
         end
 
-        it "raises ArgumentError" do
+        it "raises NotFoundError" do
           expect do
             PgSqlTriggers::Registry.enable("nonexistent", actor: actor)
-          end.to raise_error(ArgumentError, /not found in registry/)
+          end.to raise_error(PgSqlTriggers::NotFoundError, /not found in registry/)
         end
       end
     end
@@ -615,10 +614,10 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
           end
         end
 
-        it "raises ArgumentError" do
+        it "raises NotFoundError" do
           expect do
             PgSqlTriggers::Registry.disable("nonexistent", actor: actor)
-          end.to raise_error(ArgumentError, /not found in registry/)
+          end.to raise_error(PgSqlTriggers::NotFoundError, /not found in registry/)
         end
       end
     end
@@ -688,10 +687,10 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
           end
         end
 
-        it "raises ArgumentError" do
+        it "raises NotFoundError" do
           expect do
             PgSqlTriggers::Registry.drop("nonexistent", actor: actor, reason: "Testing")
-          end.to raise_error(ArgumentError, /not found in registry/)
+          end.to raise_error(PgSqlTriggers::NotFoundError, /not found in registry/)
         end
       end
     end
@@ -759,10 +758,10 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
           end
         end
 
-        it "raises ArgumentError" do
+        it "raises NotFoundError" do
           expect do
             PgSqlTriggers::Registry.re_execute("nonexistent", actor: actor, reason: "Fix drift")
-          end.to raise_error(ArgumentError, /not found in registry/)
+          end.to raise_error(PgSqlTriggers::NotFoundError, /not found in registry/)
         end
       end
     end

@@ -64,8 +64,8 @@
             </div>
           </div>
 
-          <% if PgSqlTriggers::Permissions.can?(current_actor, :enable_trigger) %>
-            <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem;">
+          <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <% if PgSqlTriggers::Permissions.can?(current_actor, :enable_trigger) %>
               <% if trigger.enabled %>
                 <% form_id = "table-trigger-disable-#{trigger.id}-form" %>
                 <%= form_with url: disable_trigger_path(trigger), method: :post, local: true, id: form_id, style: "margin: 0;" do |f| %>
@@ -95,8 +95,21 @@
                            title: 'Enable Trigger',
                            message: "Are you sure you want to enable trigger '#{trigger.trigger_name}' on table '#{@table_info[:table_name]}'?" %>
               <% end %>
-            </div>
-          <% end %>
+            <% end %>
+
+            <% if PgSqlTriggers::Permissions.can?(current_actor, :drop_trigger) %>
+              <% begin %>
+                <% drift_info = trigger.drift_result %>
+                <% if drift_info && drift_info[:state] == 'drifted' %>
+                  <%= render 'pg_sql_triggers/triggers/re_execute_modal', trigger: trigger, drift_info: drift_info, redirect_to: table_path(@table_info[:table_name]) %>
+                <% end %>
+              <% rescue StandardError %>
+                <%# Skip if drift detection fails %>
+              <% end %>
+
+              <%= render 'pg_sql_triggers/triggers/drop_modal', trigger: trigger, redirect_to: table_path(@table_info[:table_name]) %>
+            <% end %>
+          </div>
 
           <% if trigger.definition.present? %>
             <% definition = JSON.parse(trigger.definition) rescue {} %>

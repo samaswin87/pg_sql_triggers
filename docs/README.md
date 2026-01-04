@@ -9,12 +9,16 @@ Welcome to the PgSqlTriggers documentation. This directory contains comprehensiv
 
 ### Core Guides
 - **[Usage Guide](usage-guide.md)** - DSL syntax, migrations, and drift detection
-- **[Web UI Guide](web-ui.md)** - Using the web dashboard
+- **[UI Guide](ui-guide.md)** - Quick start guide for the web interface
+- **[Web UI Guide](web-ui.md)** - Comprehensive web dashboard documentation
 - **[Kill Switch Guide](kill-switch.md)** - Production safety features
+- **[Permissions Guide](permissions.md)** - Configuring and using permissions
+- **[Audit Trail Guide](audit-trail.md)** - Viewing and exporting audit logs
 
 ### Reference
 - **[Configuration Reference](configuration.md)** - Complete configuration options
 - **[API Reference](api-reference.md)** - Console API and programmatic usage
+- **[Troubleshooting Guide](troubleshooting.md)** - Common issues and solutions
 
 ## Quick Links
 
@@ -30,19 +34,25 @@ See [Usage Guide - Declaring Triggers](usage-guide.md#declaring-triggers)
 See [Usage Guide - Trigger Migrations](usage-guide.md#trigger-migrations)
 
 #### Use the web dashboard
-See [Web UI Documentation](web-ui.md)
+Start with [UI Guide](ui-guide.md) or see [Web UI Documentation](web-ui.md) for comprehensive details
+
+#### Configure permissions
+See [Permissions Guide](permissions.md) or [Configuration - Permission System](configuration.md#permission-system)
+
+#### View audit logs
+See [Audit Trail Guide](audit-trail.md)
 
 #### Protect production
 See [Kill Switch Documentation](kill-switch.md)
-
-#### Configure permissions
-See [Configuration - Permission System](configuration.md#permission-system)
 
 #### Use the console API
 See [API Reference](api-reference.md)
 
 #### Handle drift detection
 See [Usage Guide - Drift Detection](usage-guide.md#drift-detection)
+
+#### Troubleshoot issues
+See [Troubleshooting Guide](troubleshooting.md)
 
 ## Screenshots
 

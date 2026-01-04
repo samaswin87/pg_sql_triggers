@@ -32,14 +32,16 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
       end
 
       it "enables the trigger" do
-        expect_any_instance_of(PgSqlTriggers::TriggerRegistry).to receive(:enable!).with(confirmation: nil)
+        expect_any_instance_of(PgSqlTriggers::TriggerRegistry).to receive(:enable!).with(
+          hash_including(confirmation: nil, actor: { type: "User", id: "unknown" })
+        )
         post :enable, params: { id: disabled_trigger.id }
       end
 
       it "passes confirmation text to enable!" do
         expect_any_instance_of(PgSqlTriggers::TriggerRegistry)
           .to receive(:enable!)
-          .with(confirmation: "EXECUTE TRIGGER_ENABLE")
+          .with(hash_including(confirmation: "EXECUTE TRIGGER_ENABLE", actor: { type: "User", id: "unknown" }))
         post :enable, params: { id: disabled_trigger.id, confirmation_text: "EXECUTE TRIGGER_ENABLE" }
       end
 
@@ -123,14 +125,16 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
       end
 
       it "disables the trigger" do
-        expect_any_instance_of(PgSqlTriggers::TriggerRegistry).to receive(:disable!).with(confirmation: nil)
+        expect_any_instance_of(PgSqlTriggers::TriggerRegistry).to receive(:disable!).with(
+          hash_including(confirmation: nil, actor: { type: "User", id: "unknown" })
+        )
         post :disable, params: { id: trigger.id }
       end
 
       it "passes confirmation text to disable!" do
         expect_any_instance_of(PgSqlTriggers::TriggerRegistry)
           .to receive(:disable!)
-          .with(confirmation: "EXECUTE TRIGGER_DISABLE")
+          .with(hash_including(confirmation: "EXECUTE TRIGGER_DISABLE", actor: { type: "User", id: "unknown" }))
         post :disable, params: { id: trigger.id, confirmation_text: "EXECUTE TRIGGER_DISABLE" }
       end
 
@@ -210,7 +214,9 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
   describe "permission checks" do
     context "when user lacks permissions" do
       before do
-        allow(PgSqlTriggers::Permissions).to receive(:can?).with(anything, :enable_trigger).and_return(false)
+        allow(PgSqlTriggers::Permissions).to receive(:can?) do |_actor, action, _options|
+          action != :enable_trigger
+        end
       end
 
       it "blocks enable action" do
@@ -221,6 +227,9 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
       end
 
       it "blocks disable action" do
+        allow(PgSqlTriggers::Permissions).to receive(:can?) do |_actor, action, _options|
+          action != :enable_trigger
+        end
         post :disable, params: { id: trigger.id }
         expect(flash[:alert]).to match(/Insufficient permissions/)
         expect(flash[:alert]).to include("Operator role required")
@@ -327,9 +336,62 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
         expect(assigns(:drift_info)).to have_key(:drift_type)
       end
 
+      it "includes expected_sql and actual_sql in drift_info" do
+        get :show, params: { id: trigger.id }
+        expect(assigns(:drift_info)).to have_key(:expected_sql)
+        expect(assigns(:drift_info)).to have_key(:actual_sql)
+      end
+
       it "renders the show template" do
         get :show, params: { id: trigger.id }
         expect(response).to render_template(:show)
+      end
+
+      it "returns successful response" do
+        get :show, params: { id: trigger.id }
+        expect(response).to have_http_status(:success)
+      end
+
+      context "when trigger has drift" do
+        before do
+          drift_summary = {
+            triggers: [
+              {
+                trigger_name: trigger.trigger_name,
+                drift_type: "checksum_mismatch",
+                expected_sql: "CREATE FUNCTION...",
+                actual_sql: "CREATE FUNCTION..."
+              }
+            ]
+          }
+          allow_any_instance_of(PgSqlTriggers::Drift::Reporter).to receive(:summary).and_return(drift_summary)
+        end
+
+        it "detects drift" do
+          get :show, params: { id: trigger.id }
+          expect(assigns(:drift_info)[:has_drift]).to be true
+          expect(assigns(:drift_info)[:drift_type]).to eq("checksum_mismatch")
+        end
+
+        it "includes expected and actual SQL" do
+          get :show, params: { id: trigger.id }
+          expect(assigns(:drift_info)[:expected_sql]).to be_present
+          expect(assigns(:drift_info)[:actual_sql]).to be_present
+        end
+      end
+
+      context "when trigger is in sync" do
+        before do
+          drift_summary = {
+            triggers: []
+          }
+          allow_any_instance_of(PgSqlTriggers::Drift::Reporter).to receive(:summary).and_return(drift_summary)
+        end
+
+        it "shows no drift" do
+          get :show, params: { id: trigger.id }
+          expect(assigns(:drift_info)[:has_drift]).to be false
+        end
       end
     end
 
@@ -339,11 +401,18 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
         expect(flash[:error]).to eq("Trigger not found.")
         expect(response).to redirect_to(root_path)
       end
+
+      it "does not attempt to calculate drift" do
+        expect_any_instance_of(PgSqlTriggers::Drift::Reporter).not_to receive(:summary)
+        get :show, params: { id: 99_999 }
+      end
     end
 
     context "when user lacks view permission" do
       before do
-        allow(PgSqlTriggers::Permissions).to receive(:can?).with(anything, :view_triggers).and_return(false)
+        allow(PgSqlTriggers::Permissions).to receive(:can?) do |_actor, action, _options|
+          action != :view_triggers
+        end
       end
 
       it "redirects to root with alert" do
@@ -352,10 +421,21 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
         expect(flash[:alert]).to include("Viewer role required")
         expect(response).to redirect_to(root_path)
       end
+
+      it "does not load the trigger" do
+        get :show, params: { id: trigger.id }
+        expect(assigns(:trigger)).to be_nil
+      end
+
+      it "does not calculate drift" do
+        expect_any_instance_of(PgSqlTriggers::Drift::Reporter).not_to receive(:summary)
+        get :show, params: { id: trigger.id }
+      end
     end
 
     context "when drift calculation fails" do
       before do
+        allow(Rails.logger).to receive(:error)
         allow_any_instance_of(PgSqlTriggers::Drift::Reporter).to receive(:summary).and_raise(StandardError.new("DB error"))
       end
 
@@ -367,6 +447,11 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
       it "logs the error" do
         get :show, params: { id: trigger.id }
         expect(Rails.logger).to have_received(:error).with(/Failed to calculate drift/)
+      end
+
+      it "still renders the show template" do
+        get :show, params: { id: trigger.id }
+        expect(response).to render_template(:show)
       end
     end
   end
@@ -488,7 +573,9 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
 
     context "when user lacks drop permission" do
       before do
-        allow(PgSqlTriggers::Permissions).to receive(:can?).with(anything, :drop_trigger).and_return(false)
+        allow(PgSqlTriggers::Permissions).to receive(:can?) do |_actor, action, _options|
+          action != :drop_trigger
+        end
       end
 
       it "redirects to root with alert" do
@@ -623,7 +710,9 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
 
     context "when user lacks admin permission" do
       before do
-        allow(PgSqlTriggers::Permissions).to receive(:can?).with(anything, :drop_trigger).and_return(false)
+        allow(PgSqlTriggers::Permissions).to receive(:can?) do |_actor, action, _options|
+          action != :drop_trigger
+        end
       end
 
       it "redirects to root with alert" do
