@@ -10,6 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0]
 
 ### Added
+- **Enhanced Console API**: Added missing drift query methods to Registry API for consistency
+  - `PgSqlTriggers::Registry.drifted` - Returns all drifted triggers
+  - `PgSqlTriggers::Registry.in_sync` - Returns all in-sync triggers
+  - `PgSqlTriggers::Registry.unknown_triggers` - Returns all unknown (external) triggers
+  - `PgSqlTriggers::Registry.dropped` - Returns all dropped triggers
+  - All console APIs now follow consistent naming conventions (query methods vs action methods)
+
+- **Controller Concerns**: Extracted common controller functionality into reusable concerns
+  - `KillSwitchProtection` concern - Handles kill switch checking and confirmation helpers
+  - `PermissionChecking` concern - Handles permission checks and actor management
+  - `ErrorHandling` concern - Handles error formatting and flash message helpers
+  - All controllers now inherit from `ApplicationController` which includes these concerns
+  - Improved code organization and maintainability
+
+- **YARD Documentation**: Comprehensive YARD documentation added to all public APIs
+  - `PgSqlTriggers::Registry` module - All public methods fully documented
+  - `PgSqlTriggers::TriggerRegistry` model - All public methods fully documented
+  - `PgSqlTriggers::Generator::Service` - All public class methods fully documented
+  - `PgSqlTriggers::SQL::Executor` - Already had documentation (verified)
+  - All documentation includes parameter types, return values, and examples
+
+### Added
 - **Complete UI Action Buttons**: All trigger operations now accessible via web UI
   - Enable/Disable buttons in dashboard and table detail views
   - Drop trigger button with confirmation modal (Admin permission required)
@@ -86,6 +108,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Navigation menu integration
 
 ### Changed
+- **Code Organization**: Refactored `ApplicationController` to use concerns instead of inline methods
+  - Reduced code duplication across controllers
+  - Improved separation of concerns
+  - Better testability and maintainability
+
+- **Service Object Patterns**: Standardized service object patterns across all service classes
+  - All service objects follow consistent class method patterns
+  - Consistent stateless service object conventions
+
+- **Goal.md**: Updated to reflect actual implementation status
+  - Added technical notes documenting improvements
+  - Updated console API section with all implemented methods
+  - Documented code organization improvements
+
 - Dashboard default sorting changed to `installed_at` (most recent first) instead of `created_at`
 - Trigger detail page breadcrumbs improved navigation flow
 - All trigger action buttons use consistent styling and permission checks

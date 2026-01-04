@@ -98,6 +98,76 @@ end
 
 **Returns**: Hash with drift categories
 
+### `PgSqlTriggers::Registry.drifted`
+
+Returns all triggers that have drifted from their expected state.
+
+```ruby
+drifted_triggers = PgSqlTriggers::Registry.drifted
+# => [
+#   { state: "drifted", trigger_name: "users_email_validation", ... },
+#   ...
+# ]
+
+drifted_triggers.each do |trigger|
+  puts "Drifted: #{trigger[:trigger_name]}"
+end
+```
+
+**Returns**: Array of drift result hashes for drifted triggers
+
+### `PgSqlTriggers::Registry.in_sync`
+
+Returns all triggers that are in sync with their expected state.
+
+```ruby
+in_sync_triggers = PgSqlTriggers::Registry.in_sync
+# => [
+#   { state: "in_sync", trigger_name: "billing_trigger", ... },
+#   ...
+# ]
+
+puts "In sync triggers: #{in_sync_triggers.count}"
+```
+
+**Returns**: Array of drift result hashes for in-sync triggers
+
+### `PgSqlTriggers::Registry.unknown_triggers`
+
+Returns all unknown (external) triggers not managed by this gem.
+
+```ruby
+unknown = PgSqlTriggers::Registry.unknown_triggers
+# => [
+#   { state: "unknown", trigger_name: "external_trigger", ... },
+#   ...
+# ]
+
+unknown.each do |trigger|
+  puts "External trigger: #{trigger[:trigger_name]}"
+end
+```
+
+**Returns**: Array of drift result hashes for unknown triggers
+
+### `PgSqlTriggers::Registry.dropped`
+
+Returns all triggers that have been dropped from the database.
+
+```ruby
+dropped_triggers = PgSqlTriggers::Registry.dropped
+# => [
+#   { state: "dropped", trigger_name: "old_trigger", ... },
+#   ...
+# ]
+
+dropped_triggers.each do |trigger|
+  puts "Dropped: #{trigger[:trigger_name]}"
+end
+```
+
+**Returns**: Array of drift result hashes for dropped triggers
+
 ### `PgSqlTriggers::Registry.validate!`
 
 Validates all triggers and raises an error if any are invalid.
@@ -836,6 +906,14 @@ puts "Total triggers: #{triggers.count}"
 # 4. Check for drift
 drift = PgSqlTriggers::Registry.diff
 puts "Drifted triggers: #{drift[:drifted].count}"
+
+# Alternative: Use dedicated query methods
+drifted = PgSqlTriggers::Registry.drifted
+in_sync = PgSqlTriggers::Registry.in_sync
+unknown = PgSqlTriggers::Registry.unknown_triggers
+dropped = PgSqlTriggers::Registry.dropped
+
+puts "Drifted: #{drifted.count}, In Sync: #{in_sync.count}, Unknown: #{unknown.count}, Dropped: #{dropped.count}"
 
 # 5. Enable specific trigger
 trigger = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "users_email_validation")

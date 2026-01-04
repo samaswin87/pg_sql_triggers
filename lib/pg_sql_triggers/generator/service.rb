@@ -6,9 +6,24 @@ require "active_support/core_ext/string/inflections"
 
 module PgSqlTriggers
   module Generator
+    # Service object for generating trigger DSL files, migration files, and registering triggers.
+    #
+    # This service follows the service object pattern with class methods for stateless operations.
+    #
+    # @example Generate trigger files
+    #   form = PgSqlTriggers::Generator::Form.new(trigger_name: "users_email_validation", ...)
+    #   result = PgSqlTriggers::Generator::Service.create_trigger(form, actor: current_user)
+    #
+    #   if result[:success]
+    #     puts "Created: #{result[:migration_path]}"
+    #   end
     # rubocop:disable Metrics/ClassLength
     class Service
       class << self
+        # Generates the DSL trigger definition code from a form.
+        #
+        # @param form [PgSqlTriggers::Generator::Form] The form containing trigger parameters
+        # @return [String] The generated DSL code
         def generate_dsl(form)
           # Generate DSL trigger definition
           events_list = form.events.compact_blank.map { |e| ":#{e}" }.join(", ")
@@ -44,6 +59,10 @@ module PgSqlTriggers
           code
         end
 
+        # Generates the migration file code from a form.
+        #
+        # @param form [PgSqlTriggers::Generator::Form] The form containing trigger parameters
+        # @return [String] The generated migration code
         def generate_migration(form)
           # Generate migration class code
           # Use Rails migration naming convention: Add{TriggerName}
@@ -95,6 +114,10 @@ module PgSqlTriggers
           RUBY
         end
 
+        # Generates a PL/pgSQL function stub template.
+        #
+        # @param form [PgSqlTriggers::Generator::Form] The form containing trigger parameters
+        # @return [String, nil] The generated function stub SQL, or nil if not requested
         def generate_function_stub(form)
           return nil unless form.generate_function_stub
 
@@ -138,6 +161,10 @@ module PgSqlTriggers
           SQL
         end
 
+        # Returns the file paths where the migration and DSL files will be created.
+        #
+        # @param form [PgSqlTriggers::Generator::Form] The form containing trigger parameters
+        # @return [Hash] Hash with :migration and :dsl keys containing relative file paths
         def file_paths(form)
           # NOTE: These paths are relative to the host Rails app, not the gem
           # Generate both migration file and DSL file
@@ -148,6 +175,11 @@ module PgSqlTriggers
           }
         end
 
+        # Creates trigger files (DSL and migration) and registers the trigger in the registry.
+        #
+        # @param form [PgSqlTriggers::Generator::Form] The form containing trigger parameters
+        # @param actor [Hash, nil] Optional actor information for audit logging
+        # @return [Hash] Result hash with :success (Boolean), :migration_path, :dsl_path, and optional :error
         def create_trigger(form, actor: nil) # rubocop:disable Lint/UnusedMethodArgument
           paths = file_paths(form)
           base_path = rails_base_path
