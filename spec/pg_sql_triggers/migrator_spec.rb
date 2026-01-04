@@ -472,18 +472,22 @@ RSpec.describe PgSqlTriggers::Migrator do
   end
 
   describe ".cleanup_orphaned_registry_entries" do
+    let(:existing_trigger_name) { "existing_trigger_#{SecureRandom.hex(4)}" }
+    let(:orphaned_trigger_name) { "orphaned_trigger_#{SecureRandom.hex(4)}" }
+    let(:existing_function_name) { "existing_function_#{SecureRandom.hex(4)}" }
+
     before do
-      create(:trigger_registry, :enabled, trigger_name: "existing_trigger", table_name: "users")
-      create(:trigger_registry, :enabled, trigger_name: "orphaned_trigger", table_name: "posts")
+      create(:trigger_registry, :enabled, trigger_name: existing_trigger_name, table_name: "users")
+      create(:trigger_registry, :enabled, trigger_name: orphaned_trigger_name, table_name: "posts")
 
       # Create a trigger in database for existing_trigger
       create_users_table
       begin
         ActiveRecord::Base.connection.execute(<<~SQL.squish)
-          CREATE FUNCTION existing_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;
+          CREATE FUNCTION #{existing_function_name}() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;
         SQL
         ActiveRecord::Base.connection.execute(<<~SQL.squish)
-          CREATE TRIGGER existing_trigger BEFORE INSERT ON users FOR EACH ROW EXECUTE FUNCTION existing_function();
+          CREATE TRIGGER #{existing_trigger_name} BEFORE INSERT ON users FOR EACH ROW EXECUTE FUNCTION #{existing_function_name}();
         SQL
       rescue StandardError => _e
         # Ignore errors - function/trigger may already exist
@@ -491,8 +495,8 @@ RSpec.describe PgSqlTriggers::Migrator do
     end
 
     after do
-      ActiveRecord::Base.connection.execute("DROP TRIGGER IF EXISTS existing_trigger ON users")
-      ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS existing_function()")
+      ActiveRecord::Base.connection.execute("DROP TRIGGER IF EXISTS #{existing_trigger_name} ON users")
+      ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS #{existing_function_name}()")
       drop_test_table(:users)
     rescue StandardError => _e
       # Ignore errors during cleanup - trigger/function may not exist
@@ -502,7 +506,7 @@ RSpec.describe PgSqlTriggers::Migrator do
       expect(PgSqlTriggers::TriggerRegistry.count).to eq(2)
       described_class.cleanup_orphaned_registry_entries
       expect(PgSqlTriggers::TriggerRegistry.count).to eq(1)
-      expect(PgSqlTriggers::TriggerRegistry.first.trigger_name).to eq("existing_trigger")
+      expect(PgSqlTriggers::TriggerRegistry.first.trigger_name).to eq(existing_trigger_name)
     end
 
     it "returns early if registry table doesn't exist" do

@@ -4,8 +4,9 @@ require "spec_helper"
 
 RSpec.describe PgSqlTriggers::Registry do
   describe ".register" do
+    let(:delegation_trigger_name) { "delegation_trigger_#{SecureRandom.hex(4)}" }
     let(:definition) do
-      definition = PgSqlTriggers::DSL::TriggerDefinition.new("test_trigger")
+      definition = PgSqlTriggers::DSL::TriggerDefinition.new(delegation_trigger_name)
       definition.table(:users)
       definition.on(:insert)
       definition.function(:test_function)
@@ -71,8 +72,9 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
   end
 
   describe ".register" do
+    let(:test_trigger_name) { "test_trigger_#{SecureRandom.hex(4)}" }
     let(:definition) do
-      definition = PgSqlTriggers::DSL::TriggerDefinition.new("test_trigger")
+      definition = PgSqlTriggers::DSL::TriggerDefinition.new(test_trigger_name)
       definition.table(:users)
       definition.on(:insert)
       definition.function(:test_function)
@@ -86,7 +88,7 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
       it "creates a new registry entry" do
         registry = described_class.register(definition)
         expect(registry).to be_persisted
-        expect(registry.trigger_name).to eq("test_trigger")
+        expect(registry.trigger_name).to eq(test_trigger_name)
         expect(registry.table_name).to eq("users")
         expect(registry.version).to eq(1)
         expect(registry.enabled).to be(false)
@@ -98,7 +100,7 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
         registry = described_class.register(definition)
         expect(registry.definition).to be_present
         parsed = JSON.parse(registry.definition)
-        expect(parsed["name"]).to eq("test_trigger")
+        expect(parsed["name"]).to eq(test_trigger_name)
       end
 
       it "sets a placeholder checksum" do
@@ -110,7 +112,7 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
     context "when trigger already exists" do
       before do
         create(:trigger_registry, :enabled,
-               trigger_name: "test_trigger",
+               trigger_name: test_trigger_name,
                table_name: "users",
                checksum: "old",
                source: "generated")
@@ -125,55 +127,68 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
   end
 
   describe ".list" do
+    let(:list_trigger1) { "list_trigger1_#{SecureRandom.hex(4)}" }
+    let(:list_trigger2) { "list_trigger2_#{SecureRandom.hex(4)}" }
+
     before do
-      create(:trigger_registry, :enabled, trigger_name: "trigger1", table_name: "users")
-      create(:trigger_registry, :disabled, trigger_name: "trigger2", table_name: "posts", source: "generated")
+      create(:trigger_registry, :enabled, trigger_name: list_trigger1, table_name: "users")
+      create(:trigger_registry, :disabled, trigger_name: list_trigger2, table_name: "posts", source: "generated")
     end
 
     it "returns all triggers" do
       result = described_class.list
       expect(result.count).to eq(2)
-      expect(result.map(&:trigger_name)).to contain_exactly("trigger1", "trigger2")
+      expect(result.map(&:trigger_name)).to contain_exactly(list_trigger1, list_trigger2)
     end
   end
 
   describe ".enabled" do
+    let(:enabled_trigger_name) { "enabled_trigger_#{SecureRandom.hex(4)}" }
+    let(:disabled_trigger_name) { "disabled_trigger_#{SecureRandom.hex(4)}" }
+
     before do
-      create(:trigger_registry, :enabled, trigger_name: "enabled_trigger", table_name: "users")
-      create(:trigger_registry, :disabled, trigger_name: "disabled_trigger", table_name: "posts")
+      create(:trigger_registry, :enabled, trigger_name: enabled_trigger_name, table_name: "users")
+      create(:trigger_registry, :disabled, trigger_name: disabled_trigger_name, table_name: "posts")
     end
 
     it "returns only enabled triggers" do
       result = described_class.enabled
       expect(result.count).to eq(1)
-      expect(result.first.trigger_name).to eq("enabled_trigger")
+      expect(result.first.trigger_name).to eq(enabled_trigger_name)
     end
   end
 
   describe ".disabled" do
+    let(:disabled_enabled_trigger_name) { "disabled_enabled_trigger_#{SecureRandom.hex(4)}" }
+    let(:disabled_disabled_trigger_name) { "disabled_disabled_trigger_#{SecureRandom.hex(4)}" }
+
     before do
-      create(:trigger_registry, :enabled, trigger_name: "enabled_trigger", table_name: "users")
-      create(:trigger_registry, :disabled, trigger_name: "disabled_trigger", table_name: "posts")
+      create(:trigger_registry, :enabled, trigger_name: disabled_enabled_trigger_name, table_name: "users")
+      create(:trigger_registry, :disabled, trigger_name: disabled_disabled_trigger_name, table_name: "posts")
     end
 
     it "returns only disabled triggers" do
       result = described_class.disabled
       expect(result.count).to eq(1)
-      expect(result.first.trigger_name).to eq("disabled_trigger")
+      expect(result.first.trigger_name).to eq(disabled_disabled_trigger_name)
     end
   end
 
   describe ".for_table" do
+    let(:for_table_trigger1) { "for_table_trigger1_#{SecureRandom.hex(4)}" }
+    let(:for_table_trigger2) { "for_table_trigger2_#{SecureRandom.hex(4)}" }
+    let(:for_table_trigger3) { "for_table_trigger3_#{SecureRandom.hex(4)}" }
+
     before do
-      create(:trigger_registry, :enabled, trigger_name: "trigger1", table_name: "users")
-      create(:trigger_registry, :disabled, trigger_name: "trigger2", table_name: "users")
-      create(:trigger_registry, :enabled, trigger_name: "trigger3", table_name: "posts")
+      create(:trigger_registry, :enabled, trigger_name: for_table_trigger1, table_name: "users")
+      create(:trigger_registry, :disabled, trigger_name: for_table_trigger2, table_name: "users")
+      create(:trigger_registry, :enabled, trigger_name: for_table_trigger3, table_name: "posts")
     end
 
     it "returns triggers for the specified table" do
       result = described_class.for_table("users")
       expect(result.count).to eq(2)
-      expect(result.map(&:trigger_name)).to contain_exactly("trigger1", "trigger2")
+      expect(result.map(&:trigger_name)).to contain_exactly(for_table_trigger1, for_table_trigger2)
     end
   end
 
@@ -218,9 +233,12 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
   describe ".drifted" do
     it "returns triggers with drifted state" do
       # Create real triggers and set up drift scenarios
-      create(:trigger_registry, :enabled, trigger_name: "drifted1", table_name: "users")
-      create(:trigger_registry, :enabled, trigger_name: "in_sync1", table_name: "posts")
-      create(:trigger_registry, :enabled, trigger_name: "drifted2", table_name: "comments")
+      drifted1 = "drifted1_#{SecureRandom.hex(4)}"
+      in_sync1 = "in_sync1_#{SecureRandom.hex(4)}"
+      drifted2 = "drifted2_#{SecureRandom.hex(4)}"
+      create(:trigger_registry, :enabled, trigger_name: drifted1, table_name: "users")
+      create(:trigger_registry, :enabled, trigger_name: in_sync1, table_name: "posts")
+      create(:trigger_registry, :enabled, trigger_name: drifted2, table_name: "comments")
 
       # Use real drift detection - results depend on actual database state
       result = described_class.drifted
@@ -233,9 +251,12 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
   describe ".in_sync" do
     it "returns triggers with in_sync state" do
       # Create real triggers
-      create(:trigger_registry, :enabled, trigger_name: "in_sync1", table_name: "users")
-      create(:trigger_registry, :enabled, trigger_name: "drifted1", table_name: "posts")
-      create(:trigger_registry, :enabled, trigger_name: "in_sync2", table_name: "comments")
+      in_sync1 = "in_sync1_#{SecureRandom.hex(4)}"
+      drifted1 = "drifted1_#{SecureRandom.hex(4)}"
+      in_sync2 = "in_sync2_#{SecureRandom.hex(4)}"
+      create(:trigger_registry, :enabled, trigger_name: in_sync1, table_name: "users")
+      create(:trigger_registry, :enabled, trigger_name: drifted1, table_name: "posts")
+      create(:trigger_registry, :enabled, trigger_name: in_sync2, table_name: "comments")
 
       # Use real drift detection
       result = described_class.in_sync
@@ -247,7 +268,8 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
   describe ".unknown_triggers" do
     it "returns triggers with unknown state" do
       # Create real triggers
-      create(:trigger_registry, :enabled, trigger_name: "in_sync1", table_name: "users")
+      unknown_trigger_name = "unknown_trigger_#{SecureRandom.hex(4)}"
+      create(:trigger_registry, :enabled, trigger_name: unknown_trigger_name, table_name: "users")
 
       # Use real drift detection
       result = described_class.unknown_triggers
@@ -259,9 +281,12 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
   describe ".dropped" do
     it "returns triggers with dropped state" do
       # Create real triggers
-      create(:trigger_registry, :enabled, trigger_name: "dropped1", table_name: "users")
-      create(:trigger_registry, :enabled, trigger_name: "in_sync1", table_name: "posts")
-      create(:trigger_registry, :enabled, trigger_name: "dropped2", table_name: "comments")
+      dropped1 = "dropped1_#{SecureRandom.hex(4)}"
+      in_sync1 = "in_sync1_#{SecureRandom.hex(4)}"
+      dropped2 = "dropped2_#{SecureRandom.hex(4)}"
+      create(:trigger_registry, :enabled, trigger_name: dropped1, table_name: "users")
+      create(:trigger_registry, :enabled, trigger_name: in_sync1, table_name: "posts")
+      create(:trigger_registry, :enabled, trigger_name: dropped2, table_name: "comments")
 
       # Use real drift detection
       result = described_class.dropped
@@ -294,23 +319,26 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
     end
 
     describe ".preload_triggers" do
+      let(:trigger_name1) { "preload_trigger1_#{SecureRandom.hex(4)}" }
+      let(:trigger_name2) { "preload_trigger2_#{SecureRandom.hex(4)}" }
+
       before do
         described_class._clear_registry_cache
-        create(:trigger_registry, :enabled, trigger_name: "trigger1", table_name: "users")
-        create(:trigger_registry, :disabled, trigger_name: "trigger2", table_name: "posts")
+        create(:trigger_registry, :enabled, trigger_name: trigger_name1, table_name: "users")
+        create(:trigger_registry, :disabled, trigger_name: trigger_name2, table_name: "posts")
       end
 
       it "loads triggers into cache" do
         expect(described_class._registry_cache).to be_empty
-        described_class.preload_triggers(%w[trigger1 trigger2])
-        expect(described_class._registry_cache.keys).to contain_exactly("trigger1", "trigger2")
-        expect(described_class._registry_cache["trigger1"].trigger_name).to eq("trigger1")
-        expect(described_class._registry_cache["trigger2"].trigger_name).to eq("trigger2")
+        described_class.preload_triggers([trigger_name1, trigger_name2])
+        expect(described_class._registry_cache.keys).to contain_exactly(trigger_name1, trigger_name2)
+        expect(described_class._registry_cache[trigger_name1].trigger_name).to eq(trigger_name1)
+        expect(described_class._registry_cache[trigger_name2].trigger_name).to eq(trigger_name2)
       end
 
       it "only loads uncached triggers" do
         # Pre-populate cache with trigger1
-        described_class._registry_cache["trigger1"] = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "trigger1")
+        described_class._registry_cache[trigger_name1] = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: trigger_name1)
 
         # Count queries to pg_sql_triggers_registry table
         query_count = 0
@@ -319,7 +347,7 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
         end
 
         # Should only query for trigger2 (one WHERE query)
-        described_class.preload_triggers(%w[trigger1 trigger2])
+        described_class.preload_triggers([trigger_name1, trigger_name2])
 
         # Verify only one query was made (for trigger2)
         expect(query_count).to eq(1)
@@ -339,8 +367,9 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
     end
 
     describe ".register with caching" do
+      let(:cached_trigger_name) { "cached_trigger_#{SecureRandom.hex(4)}" }
       let(:definition) do
-        definition = PgSqlTriggers::DSL::TriggerDefinition.new("cached_trigger")
+        definition = PgSqlTriggers::DSL::TriggerDefinition.new(cached_trigger_name)
         definition.table(:users)
         definition.on(:insert)
         definition.function(:test_function)
@@ -355,7 +384,7 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
 
       it "caches the lookup result" do
         registry = described_class.register(definition)
-        expect(described_class._registry_cache["cached_trigger"]).to eq(registry)
+        expect(described_class._registry_cache[cached_trigger_name]).to eq(registry)
       end
 
       xit "uses cached value on subsequent lookups" do # rubocop:disable RSpec/PendingWithoutReason
@@ -380,41 +409,44 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
 
       it "updates the cache after updating an existing trigger" do
         create(:trigger_registry, :enabled,
-               trigger_name: "cached_trigger",
+               trigger_name: cached_trigger_name,
                table_name: "users",
                checksum: "old",
                source: "generated")
 
         registry = described_class.register(definition)
-        expect(described_class._registry_cache["cached_trigger"]).to eq(registry)
-        expect(described_class._registry_cache["cached_trigger"].enabled).to be(false)
+        expect(described_class._registry_cache[cached_trigger_name]).to eq(registry)
+        expect(described_class._registry_cache[cached_trigger_name].enabled).to be(false)
       end
 
       it "caches the newly created record" do
         registry = described_class.register(definition)
-        expect(described_class._registry_cache["cached_trigger"]).to eq(registry)
-        expect(described_class._registry_cache["cached_trigger"]).to be_persisted
+        expect(described_class._registry_cache[cached_trigger_name]).to eq(registry)
+        expect(described_class._registry_cache[cached_trigger_name]).to be_persisted
       end
     end
 
     describe "N+1 query prevention" do
+      let(:n1_trigger1) { "n1_trigger1_#{SecureRandom.hex(4)}" }
+      let(:n1_trigger2) { "n1_trigger2_#{SecureRandom.hex(4)}" }
+      let(:n1_trigger3) { "n1_trigger3_#{SecureRandom.hex(4)}" }
       let(:definitions) do
         [
-          PgSqlTriggers::DSL::TriggerDefinition.new("trigger1").tap do |d|
+          PgSqlTriggers::DSL::TriggerDefinition.new(n1_trigger1).tap do |d|
             d.table(:users)
             d.on(:insert)
             d.function(:func1)
             d.version(1)
             d.enabled(false)
           end,
-          PgSqlTriggers::DSL::TriggerDefinition.new("trigger2").tap do |d|
+          PgSqlTriggers::DSL::TriggerDefinition.new(n1_trigger2).tap do |d|
             d.table(:posts)
             d.on(:update)
             d.function(:func2)
             d.version(1)
             d.enabled(false)
           end,
-          PgSqlTriggers::DSL::TriggerDefinition.new("trigger3").tap do |d|
+          PgSqlTriggers::DSL::TriggerDefinition.new(n1_trigger3).tap do |d|
             d.table(:comments)
             d.on(:delete)
             d.function(:func3)
@@ -431,15 +463,15 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
       it "reduces queries when preloading triggers" do
         # Create triggers first
         create(:trigger_registry, :disabled, :dsl_source,
-               trigger_name: "trigger1",
+               trigger_name: n1_trigger1,
                table_name: "users",
                checksum: "abc")
         create(:trigger_registry, :disabled, :dsl_source,
-               trigger_name: "trigger2",
+               trigger_name: n1_trigger2,
                table_name: "posts",
                checksum: "def")
         create(:trigger_registry, :disabled, :dsl_source,
-               trigger_name: "trigger3",
+               trigger_name: n1_trigger3,
                table_name: "comments",
                checksum: "ghi")
 
@@ -460,7 +492,7 @@ RSpec.describe PgSqlTriggers::Registry::Manager do
         end
 
         # Preload all triggers - should make one SELECT query with WHERE clause
-        described_class.preload_triggers(%w[trigger1 trigger2 trigger3])
+        described_class.preload_triggers([n1_trigger1, n1_trigger2, n1_trigger3])
         expect(select_query_count).to eq(1)
 
         # Registering should use cache, not query again (no find_by queries)

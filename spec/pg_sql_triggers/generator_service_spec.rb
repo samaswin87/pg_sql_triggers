@@ -475,7 +475,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
         form1 = form.dup
         form1.timing = "before"
         described_class.create_trigger(form1, actor: { type: "User", id: 1 })
-        registry1 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
+        registry1 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: trigger_name)
         checksum1 = registry1.checksum
 
         # Clean up
@@ -486,7 +486,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
         form2 = form.dup
         form2.timing = "after"
         described_class.create_trigger(form2, actor: { type: "User", id: 1 })
-        registry2 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
+        registry2 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: trigger_name)
         checksum2 = registry2.checksum
 
         expect(checksum1).not_to eq(checksum2)
@@ -539,7 +539,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
         form1 = form.dup
         form1.condition = "NEW.status = 'active'"
         described_class.create_trigger(form1, actor: { type: "User", id: 1 })
-        registry1 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
+        registry1 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: trigger_name)
         checksum1 = registry1.checksum
 
         # Clean up
@@ -550,7 +550,7 @@ RSpec.describe PgSqlTriggers::Generator::Service do
         form2 = form.dup
         form2.condition = "NEW.status = 'inactive'"
         described_class.create_trigger(form2, actor: { type: "User", id: 1 })
-        registry2 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: "test_trigger")
+        registry2 = PgSqlTriggers::TriggerRegistry.find_by(trigger_name: trigger_name)
         checksum2 = registry2.checksum
 
         expect(checksum1).not_to eq(checksum2)

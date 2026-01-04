@@ -59,17 +59,21 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
   end
 
   describe "scopes" do
+    let(:enabled1_name) { "test_enabled1_#{SecureRandom.hex(4)}" }
+    let(:enabled2_name) { "test_enabled2_#{SecureRandom.hex(4)}" }
+    let(:disabled1_name) { "test_disabled1_#{SecureRandom.hex(4)}" }
+
     before do
-      create(:trigger_registry, :enabled, trigger_name: "enabled1", table_name: "users")
-      create(:trigger_registry, :enabled, trigger_name: "enabled2", table_name: "posts")
-      create(:trigger_registry, :disabled, trigger_name: "disabled1", table_name: "comments")
+      create(:trigger_registry, :enabled, trigger_name: enabled1_name, table_name: "users")
+      create(:trigger_registry, :enabled, trigger_name: enabled2_name, table_name: "posts")
+      create(:trigger_registry, :disabled, trigger_name: disabled1_name, table_name: "comments")
     end
 
     describe ".enabled" do
       it "returns only enabled triggers" do
         result = described_class.enabled
         expect(result.count).to eq(2)
-        expect(result.map(&:trigger_name)).to contain_exactly("enabled1", "enabled2")
+        expect(result.map(&:trigger_name)).to contain_exactly(enabled1_name, enabled2_name)
       end
     end
 
@@ -77,7 +81,7 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
       it "returns only disabled triggers" do
         result = described_class.disabled
         expect(result.count).to eq(1)
-        expect(result.first.trigger_name).to eq("disabled1")
+        expect(result.first.trigger_name).to eq(disabled1_name)
       end
     end
 
@@ -85,25 +89,30 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
       it "returns triggers for specific table" do
         result = described_class.for_table("users")
         expect(result.count).to eq(1)
-        expect(result.first.trigger_name).to eq("enabled1")
+        expect(result.first.trigger_name).to eq(enabled1_name)
       end
     end
 
     describe ".for_environment" do
+      let(:prod_trigger_name) { "test_prod_trigger_#{SecureRandom.hex(4)}" }
+      let(:no_env_trigger_name) { "test_no_env_trigger_#{SecureRandom.hex(4)}" }
+
       before do
-        create(:trigger_registry, :production, :enabled, trigger_name: "prod_trigger", table_name: "users")
-        create(:trigger_registry, :enabled, trigger_name: "no_env_trigger", table_name: "posts", environment: nil)
+        create(:trigger_registry, :production, :enabled, trigger_name: prod_trigger_name, table_name: "users")
+        create(:trigger_registry, :enabled, trigger_name: no_env_trigger_name, table_name: "posts", environment: nil)
       end
 
       it "returns triggers for specific environment or nil" do
         result = described_class.for_environment("production")
-        expect(result.map(&:trigger_name)).to include("prod_trigger", "no_env_trigger")
+        expect(result.map(&:trigger_name)).to include(prod_trigger_name, no_env_trigger_name)
       end
     end
 
     describe ".by_source" do
+      let(:generated_trigger_name) { "test_generated_trigger_#{SecureRandom.hex(4)}" }
+
       before do
-        create(:trigger_registry, :enabled, trigger_name: "generated_trigger", table_name: "users", source: "generated")
+        create(:trigger_registry, :enabled, trigger_name: generated_trigger_name, table_name: "users", source: "generated")
       end
 
       it "returns triggers by source" do
@@ -112,7 +121,7 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
 
         generated_triggers = described_class.by_source("generated")
         expect(generated_triggers.count).to eq(1)
-        expect(generated_triggers.first.trigger_name).to eq("generated_trigger")
+        expect(generated_triggers.first.trigger_name).to eq(generated_trigger_name)
       end
     end
   end
