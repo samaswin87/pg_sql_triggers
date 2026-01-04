@@ -40,25 +40,28 @@ module PgSqlTriggers
       # Check kill switch before rolling back migration
       check_kill_switch(operation: :ui_migration_down, confirmation: params[:confirmation_text])
 
-      target_version = params[:version]&.to_i
-      PgSqlTriggers::Migrator.ensure_migrations_table!
+      # Use thread-local override so run_down doesn't need to check kill switch again
+      PgSqlTriggers::SQL::KillSwitch.override do
+        target_version = params[:version]&.to_i
+        PgSqlTriggers::Migrator.ensure_migrations_table!
 
-      current_version = PgSqlTriggers::Migrator.current_version
-      if current_version.zero?
-        flash[:warning] = "No migrations to rollback."
+        current_version = PgSqlTriggers::Migrator.current_version
+        if current_version.zero?
+          flash[:warning] = "No migrations to rollback."
+          redirect_to root_path
+          return
+        end
+
+        if target_version
+          PgSqlTriggers::Migrator.run_down(target_version)
+          flash[:success] = "Migration version #{target_version} rolled back successfully."
+        else
+          # Rollback one migration by default
+          PgSqlTriggers::Migrator.run_down
+          flash[:success] = "Rolled back last migration successfully."
+        end
         redirect_to root_path
-        return
       end
-
-      if target_version
-        PgSqlTriggers::Migrator.run_down(target_version)
-        flash[:success] = "Migration version #{target_version} rolled back successfully."
-      else
-        # Rollback one migration by default
-        PgSqlTriggers::Migrator.run_down
-        flash[:success] = "Rolled back last migration successfully."
-      end
-      redirect_to root_path
     rescue PgSqlTriggers::KillSwitchError => e
       flash[:error] = e.message
       redirect_to root_path
@@ -72,24 +75,32 @@ module PgSqlTriggers
       # Check kill switch before redoing migration
       check_kill_switch(operation: :ui_migration_redo, confirmation: params[:confirmation_text])
 
-      target_version = params[:version]&.to_i
-      PgSqlTriggers::Migrator.ensure_migrations_table!
+      # Use thread-local override so run_down and run_up don't need to check kill switch again
+      PgSqlTriggers::SQL::KillSwitch.override do
+        target_version = params[:version]&.to_i
+        PgSqlTriggers::Migrator.ensure_migrations_table!
 
-      current_version = PgSqlTriggers::Migrator.current_version
-
-      if target_version
-        redo_target_migration(target_version, current_version)
-        # Flash is set inside redo_target_migration for early return case
-        # For other cases, set flash here
-        unless flash[:success] || flash.now[:success]
-          flash[:success] = "Migration #{target_version} redone successfully."
+        current_version = PgSqlTriggers::Migrator.current_version
+        if current_version.zero?
+          flash[:warning] = "No migrations to redo."
+          redirect_to root_path
+          return
         end
-        redirect_to root_path
-      else
-        PgSqlTriggers::Migrator.run_down
-        PgSqlTriggers::Migrator.run_up
-        flash[:success] = "Last migration redone successfully."
-        redirect_to root_path
+
+        if target_version
+          redo_target_migration(target_version, current_version)
+          # Flash is set inside redo_target_migration for early return case
+          # For other cases, set flash here
+          unless flash[:success] || flash.now[:success]
+            flash[:success] = "Migration #{target_version} redone successfully."
+          end
+          redirect_to root_path
+        else
+          PgSqlTriggers::Migrator.run_down
+          PgSqlTriggers::Migrator.run_up
+          flash[:success] = "Last migration redone successfully."
+          redirect_to root_path
+        end
       end
     rescue PgSqlTriggers::KillSwitchError => e
       flash[:error] = e.message
@@ -103,7 +114,7 @@ module PgSqlTriggers
     private
 
     def check_operator_permission
-      return if PgSqlTriggers::Permissions.can?(current_actor, :apply_trigger)
+      return if PgSqlTriggers::Permissions.can?(current_actor, :apply_trigger, environment: current_environment)
 
       redirect_to root_path, alert: "Insufficient permissions. Operator role required."
     end

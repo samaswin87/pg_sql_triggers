@@ -504,16 +504,20 @@ RSpec.describe PgSqlTriggers::MigrationsController, type: :controller do
   describe "permission checks" do
     describe "before_action :check_operator_permission" do
       it "allows action when user has operator permission" do
-        allow(PgSqlTriggers::Permissions).to receive(:can?).and_return(true)
-        post :up
-        expect(response).not_to redirect_to(root_path)
+        with_permission_checker(apply_trigger: true) do
+          post :up
+          expect(response).to redirect_to(root_path)
+          # Should not have alert flash (which would indicate permission denied)
+          expect(flash[:alert]).to be_nil
+        end
       end
 
       it "redirects when user lacks operator permission" do
-        allow(PgSqlTriggers::Permissions).to receive(:can?).and_return(false)
-        post :up
-        expect(response).to redirect_to(root_path)
-        expect(flash[:alert]).to include("Operator role required")
+        with_permission_checker(apply_trigger: false) do
+          post :up
+          expect(response).to redirect_to(root_path)
+          expect(flash[:alert]).to include("Operator role required")
+        end
       end
     end
   end

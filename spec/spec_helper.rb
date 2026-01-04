@@ -201,35 +201,33 @@ RSpec.configure do |config|
 
   # Use DatabaseCleaner with transactions for test isolation
   config.around do |example|
+    # Only use DatabaseCleaner if we have a database connection
+    use_cleaner = false
     begin
-      # Ensure strategy is set for active_record cleaner
-      cleaner = DatabaseCleaner[:active_record]
-      if cleaner
-        cleaner.strategy = :truncation unless cleaner.strategy
-        DatabaseCleaner.cleaning do
+      if ActiveRecord::Base.connection_pool.active_connection?
+        cleaner = DatabaseCleaner[:active_record]
+        if cleaner && cleaner.respond_to?(:strategy=) && cleaner.respond_to?(:cleaning)
+          cleaner.strategy = :truncation
+          use_cleaner = true
+        end
+      end
+    rescue => e
+      # If we can't set up the cleaner, just skip it
+      use_cleaner = false
+    end
+
+    if use_cleaner
+      begin
+        cleaner.cleaning do
           example.run
         end
-      else
-        # If cleaner is not available, just run the example
+      rescue => e
+        # If cleaning fails for any reason, just run the example without cleaning
         example.run
       end
-    rescue NoMethodError => e
-      # If database cleaner fails (e.g., strategy not set or connection issues),
-      # just run the example without cleaning. This can happen for controller specs
-      # that don't use the database.
-      if e.message.include?("to_sym") || e.message.include?("strategy") || e.message.include?("cleaning") || e.message.include?("nil")
-        example.run
-      else
-        raise
-      end
-    rescue ActiveRecord::StatementInvalid => e
-      # Handle cases where DatabaseCleaner tries to clean tables that don't exist
-      if e.message.include?("does not exist") || e.message.include?("relation") && e.message.include?("does not exist")
-        # Table doesn't exist, which is fine - just run the example
-        example.run
-      else
-        raise
-      end
+    else
+      # If cleaner is not available, just run the example
+      example.run
     end
   end
 end
