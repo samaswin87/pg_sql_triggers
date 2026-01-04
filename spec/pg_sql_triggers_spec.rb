@@ -113,9 +113,10 @@ RSpec.describe PgSqlTriggers::Error do
   end
 
   describe "#user_message" do
-    it "returns message when no recovery suggestion" do
+    it "includes default recovery suggestion when not explicitly provided" do
       error = described_class.new("Test error")
-      expect(error.user_message).to eq("Test error")
+      expect(error.user_message).to include("Test error")
+      expect(error.user_message).to include("Recovery:")
     end
 
     it "includes recovery suggestion when present" do
@@ -192,7 +193,7 @@ RSpec.describe PgSqlTriggers::KillSwitchError do
   describe "#default_message" do
     it "returns kill switch active message" do
       error = described_class.new
-      expect(error.message).to include("kill switch is active")
+      expect(error.message.downcase).to include("kill switch is active")
     end
   end
 

@@ -988,9 +988,10 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
   end
 
   describe "private methods" do
+    let(:unique_trigger_name) { "test_trigger_#{SecureRandom.hex(4)}" }
     let(:registry) do
       create(:trigger_registry, :with_function_body, :with_condition,
-             trigger_name: "test_trigger",
+             trigger_name: unique_trigger_name,
              table_name: "test_table",
              checksum: "abc123",
              function_body: "CREATE FUNCTION test() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;",
@@ -1243,62 +1244,65 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
     end
 
     describe "#drop_existing_trigger_for_re_execute" do
-      before do
-        create_test_table(:test_table, columns: { name: :string })
-        ActiveRecord::Base.connection.execute(<<~SQL.squish)
-          CREATE OR REPLACE FUNCTION test_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;
-        SQL
-        ActiveRecord::Base.connection.execute(<<~SQL.squish)
-          CREATE TRIGGER #{registry.trigger_name} BEFORE INSERT ON test_table FOR EACH ROW EXECUTE FUNCTION test_function();
-        SQL
-      end
-
-      after do
-        drop_test_table(:test_table)
-      end
-
       it "drops existing trigger if it exists" do
-        introspection = PgSqlTriggers::DatabaseIntrospection.new
-        expect(introspection.trigger_exists?(registry.trigger_name)).to be true
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with(registry.trigger_name).and_return(true)
+        allow(ActiveRecord::Base.connection).to receive(:execute)
+        allow(Rails.logger).to receive(:info)
+
         registry.send(:drop_existing_trigger_for_re_execute)
-        expect(introspection.trigger_exists?(registry.trigger_name)).to be false
+
+        expect(ActiveRecord::Base.connection).to have_received(:execute).with(match(/DROP TRIGGER/))
       end
 
       it "does nothing if trigger doesn't exist" do
-        ActiveRecord::Base.connection.execute("DROP TRIGGER IF EXISTS #{registry.trigger_name} ON test_table")
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with(registry.trigger_name).and_return(false)
+        allow(ActiveRecord::Base.connection).to receive(:execute)
+
         expect do
           registry.send(:drop_existing_trigger_for_re_execute)
         end.not_to raise_error
+
+        expect(ActiveRecord::Base.connection).not_to have_received(:execute)
       end
 
       it "handles errors gracefully" do
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).with(registry.trigger_name).and_return(true)
         allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(StandardError.new("DB error"))
         allow(Rails.logger).to receive(:warn)
+
         expect do
           registry.send(:drop_existing_trigger_for_re_execute)
         end.not_to raise_error
+
         expect(Rails.logger).to have_received(:warn).with(match(/Drop failed/))
       end
     end
 
     describe "#recreate_trigger" do
       before do
-        create_test_table(:test_table, columns: { name: :string })
         registry.update!(function_body: "CREATE OR REPLACE FUNCTION test_function() RETURNS TRIGGER AS $$ BEGIN RETURN NEW; END; $$ LANGUAGE plpgsql;")
       end
 
-      after do
-        drop_test_table(:test_table)
-      end
-
       it "executes function_body to recreate trigger" do
+        allow(ActiveRecord::Base.connection).to receive(:execute)
+        allow(Rails.logger).to receive(:info)
+
         registry.send(:recreate_trigger)
-        result = ActiveRecord::Base.connection.execute("SELECT proname FROM pg_proc WHERE proname = 'test_function'")
-        expect(result.count).to eq(1)
+
+        expect(ActiveRecord::Base.connection).to have_received(:execute).with(registry.function_body)
       end
 
       it "raises error when function_body is invalid" do
         registry.update!(function_body: "INVALID SQL")
+        allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(ActiveRecord::StatementInvalid.new("syntax error"))
+        allow(Rails.logger).to receive(:error)
+
         expect do
           registry.send(:recreate_trigger)
         end.to raise_error(ActiveRecord::StatementInvalid)

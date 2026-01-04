@@ -405,6 +405,7 @@ RSpec.describe PgSqlTriggers::MigrationsController, type: :controller do
       it "just applies the target version" do
         with_kill_switch_disabled do
           post :redo, params: { version: "20231215120001" }
+          expect(response).to redirect_to(root_path)
           expect(flash[:success]).to eq("Migration 20231215120001 redone successfully.")
           expect(PgSqlTriggers::Migrator.current_version).to eq(20_231_215_120_001)
         end
@@ -426,7 +427,7 @@ RSpec.describe PgSqlTriggers::MigrationsController, type: :controller do
 
       it "allows migration with confirmation" do
         with_kill_switch_protecting(Rails.env, confirmation_required: true) do
-          allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+          # No need to mock - with_kill_switch_protecting handles it, and confirmation_text is passed
           post :up, params: { confirmation_text: "EXECUTE UI_MIGRATION_UP" }
           expect(flash[:success] || flash[:info]).to be_present
         end
@@ -459,7 +460,7 @@ RSpec.describe PgSqlTriggers::MigrationsController, type: :controller do
 
       it "allows rollback with confirmation" do
         with_kill_switch_protecting(Rails.env, confirmation_required: true) do
-          allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+          # No need to mock - with_kill_switch_protecting handles it, and confirmation_text is passed
           post :down, params: { confirmation_text: "EXECUTE UI_MIGRATION_DOWN" }
           expect(flash[:success] || flash[:warning]).to be_present
         end
@@ -492,7 +493,7 @@ RSpec.describe PgSqlTriggers::MigrationsController, type: :controller do
 
       it "allows redo with confirmation" do
         with_kill_switch_protecting(Rails.env, confirmation_required: true) do
-          allow(PgSqlTriggers::SQL::KillSwitch).to receive(:check!).and_return(true)
+          # No need to mock - with_kill_switch_protecting handles it, and confirmation_text is passed
           post :redo, params: { confirmation_text: "EXECUTE UI_MIGRATION_REDO" }
           expect(flash[:success]).to be_present
         end

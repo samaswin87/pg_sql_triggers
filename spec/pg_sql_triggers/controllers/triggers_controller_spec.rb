@@ -23,32 +23,58 @@ RSpec.describe PgSqlTriggers::TriggersController, type: :controller do
       create(:trigger_registry, :disabled, :dsl_source,
              trigger_name: "disabled_trigger",
              table_name: "test_table",
-             checksum: "def456")
+             checksum: "def456",
+             function_body: "BEGIN RETURN NEW; END;")
+    end
+
+    before do
+      # Set up test table and function for real trigger operations
+      create_test_table(:test_table, columns: { name: :string })
+      function_name = "disabled_trigger_function"
+      ActiveRecord::Base.connection.execute(<<~SQL.squish)
+        CREATE OR REPLACE FUNCTION #{function_name}() RETURNS TRIGGER AS $$ 
+        BEGIN RETURN NEW; END; 
+        $$ LANGUAGE plpgsql;
+      SQL
+      ActiveRecord::Base.connection.execute(<<~SQL.squish)
+        CREATE TRIGGER disabled_trigger BEFORE INSERT ON test_table 
+        FOR EACH ROW EXECUTE FUNCTION #{function_name}();
+      SQL
+    end
+
+    after do
+      ActiveRecord::Base.connection.execute("DROP TRIGGER IF EXISTS disabled_trigger ON test_table")
+      ActiveRecord::Base.connection.execute("DROP FUNCTION IF EXISTS disabled_trigger_function()")
+      drop_test_table(:test_table)
+    rescue StandardError => _e
+      # Ignore cleanup errors
     end
 
     context "when trigger is successfully enabled" do
-      before do
-        allow_any_instance_of(PgSqlTriggers::TriggerRegistry).to receive(:enable!).and_return(true)
-      end
-
       it "enables the trigger" do
+        # Use spy to verify parameters without mocking the actual behavior
         expect_any_instance_of(PgSqlTriggers::TriggerRegistry).to receive(:enable!).with(
           hash_including(confirmation: nil, actor: { type: "User", id: "unknown" })
-        )
+        ).and_call_original
         post :enable, params: { id: disabled_trigger.id }
+        expect(disabled_trigger.reload.enabled).to be(true)
       end
 
       it "passes confirmation text to enable!" do
         expect_any_instance_of(PgSqlTriggers::TriggerRegistry)
           .to receive(:enable!)
           .with(hash_including(confirmation: "EXECUTE TRIGGER_ENABLE", actor: { type: "User", id: "unknown" }))
+          .and_call_original
         post :enable, params: { id: disabled_trigger.id, confirmation_text: "EXECUTE TRIGGER_ENABLE" }
+        expect(disabled_trigger.reload.enabled).to be(true)
       end
 
       it "sets success flash message" do
-        post :enable, params: { id: disabled_trigger.id }
-        expect(flash[:success]).to match(/enabled successfully/)
-        expect(flash[:success]).to include(disabled_trigger.trigger_name)
+        with_kill_switch_disabled do
+          post :enable, params: { id: disabled_trigger.id }
+          expect(flash[:success]).to match(/enabled successfully/)
+          expect(flash[:success]).to include(disabled_trigger.trigger_name)
+        end
       end
 
       it "redirects to root path by default" do

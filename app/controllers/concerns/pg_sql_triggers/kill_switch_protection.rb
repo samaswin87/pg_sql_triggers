@@ -60,7 +60,7 @@ module PgSqlTriggers
     #
     # @return [String] The current Rails environment
     def current_environment
-      Rails.env
+      Rails.env.to_s
     end
   end
 end

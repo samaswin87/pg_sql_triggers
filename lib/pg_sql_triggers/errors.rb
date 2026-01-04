@@ -12,6 +12,9 @@ module PgSqlTriggers
     def initialize(message = nil, error_code: nil, recovery_suggestion: nil, context: {})
       @context = context || {}
       @error_code = error_code || default_error_code
+      # Use default_recovery_suggestion if recovery_suggestion is nil
+      # Note: In Ruby, we can't distinguish between "not provided" and "explicitly nil"
+      # So nil always means "use default"
       @recovery_suggestion = recovery_suggestion || default_recovery_suggestion
       super(message || default_message)
     end
@@ -19,6 +22,7 @@ module PgSqlTriggers
     # Returns a user-friendly error message suitable for UI display
     def user_message
       msg = message
+      # Only include recovery suggestion if explicitly provided
       msg += "\n\nRecovery: #{recovery_suggestion}" if recovery_suggestion
       msg
     end

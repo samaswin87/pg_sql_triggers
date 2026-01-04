@@ -76,20 +76,21 @@ module PgSqlTriggers
       PgSqlTriggers::Migrator.ensure_migrations_table!
 
       current_version = PgSqlTriggers::Migrator.current_version
-      if current_version.zero?
-        flash[:warning] = "No migrations to redo."
-        redirect_to root_path
-        return
-      end
 
       if target_version
         redo_target_migration(target_version, current_version)
+        # Flash is set inside redo_target_migration for early return case
+        # For other cases, set flash here
+        unless flash[:success] || flash.now[:success]
+          flash[:success] = "Migration #{target_version} redone successfully."
+        end
+        redirect_to root_path
       else
         PgSqlTriggers::Migrator.run_down
         PgSqlTriggers::Migrator.run_up
         flash[:success] = "Last migration redone successfully."
+        redirect_to root_path
       end
-      redirect_to root_path
     rescue PgSqlTriggers::KillSwitchError => e
       flash[:error] = e.message
       redirect_to root_path
@@ -120,13 +121,13 @@ module PgSqlTriggers
         # Target version is not applied yet, just run it up
         PgSqlTriggers::Migrator.run_up(target_version)
         flash[:success] = "Migration #{target_version} redone successfully."
-        redirect_to root_path
-        return
+        return true  # Indicate that early return (caller should handle redirect)
       end
 
       # Now run up to the target version
       PgSqlTriggers::Migrator.run_up(target_version)
       flash.now[:success] = "Migration #{target_version} redone successfully."
+      return false  # Indicate that redirect was not performed (caller will handle redirect)
     end
 
     def rollback_to_before_target(target_version)
