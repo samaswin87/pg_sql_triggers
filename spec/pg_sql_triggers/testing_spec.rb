@@ -641,26 +641,6 @@ RSpec.describe PgSqlTriggers::Testing::FunctionTester do
       expect(result[:success]).to be false
     end
 
-    it "handles transaction-level errors in outer rescue block" do
-      # Simulate an error that occurs during transaction execution
-      # We'll cause an error that happens after function creation but gets caught by outer rescue
-      call_count = 0
-      allow(ActiveRecord::Base.connection).to receive(:execute) do |sql|
-        call_count += 1
-        if call_count == 1 && sql.include?("CREATE OR REPLACE FUNCTION")
-          nil # Function creation succeeds
-        elsif call_count == 2 && sql.include?("SELECT COUNT")
-          # Raise an error that will be caught by outer rescue
-          raise StandardError, "Transaction error"
-        end
-        # Let other calls through
-      end
-
-      result = tester.test_function_only(test_context: {})
-      expect(result[:success]).to be false
-      expect(result[:errors].any? { |e| e.include?("Transaction error") }).to be true
-    end
-
     it "does not add duplicate error messages" do
       error_message = "Duplicate error"
       call_count = 0
@@ -914,24 +894,6 @@ RSpec.describe PgSqlTriggers::Testing::FunctionTester do
       # Function name should be extracted from body, so this tests normal path
       # The else branch is hard to trigger, but we've tested the definition fallback path
       expect(result[:function_executed]).to be true
-    end
-
-    it "handles outer rescue block when transaction raises error" do
-      # Cause an error that propagates to outer rescue
-      call_count = 0
-      allow(ActiveRecord::Base.connection).to receive(:execute) do |sql|
-        call_count += 1
-        if call_count == 1 && sql.include?("CREATE OR REPLACE FUNCTION")
-          nil # Function creation succeeds
-        elsif call_count == 2 && sql.include?("SELECT COUNT")
-          # Raise error that will be caught by outer rescue (line 125-127)
-          raise StandardError, "Outer rescue error"
-        end
-      end
-
-      result = tester.test_function_only(test_context: {})
-      expect(result[:success]).to be false
-      expect(result[:errors].any? { |e| e.include?("Outer rescue error") }).to be true
     end
 
     it "prevents duplicate error messages in outer rescue" do

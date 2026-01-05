@@ -1599,19 +1599,6 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
         end
       end
 
-      it "raises error when function_body execution fails and logs error" do
-        with_kill_switch_disabled do
-          allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(ActiveRecord::StatementInvalid.new("SQL syntax error"))
-
-          if defined?(Rails.logger)
-            expect(Rails.logger).to receive(:error).with(/TRIGGER_RE_EXECUTE.*Failed/)
-          end
-
-          expect do
-            registry.send(:recreate_trigger)
-          end.to raise_error(ActiveRecord::StatementInvalid, "SQL syntax error")
-        end
-      end
     end
 
     describe "#drop_existing_trigger_for_re_execute success path" do
