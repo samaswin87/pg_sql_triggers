@@ -95,6 +95,15 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
   end
 
   describe "PermissionChecking concern" do
+    # Test PermissionChecking concern's can_* methods directly (not PermissionsHelper's overrides)
+    # by testing on a controller that only includes PermissionChecking
+    let(:permission_checking_controller_class) do
+      Class.new(ApplicationController) do
+        include PgSqlTriggers::KillSwitchProtection
+        include PgSqlTriggers::PermissionChecking
+      end
+    end
+
     describe "helper method declarations" do
       it "exposes current_actor as a helper method" do
         expect(controller.class._helper_methods).to include(:current_actor)
@@ -130,8 +139,7 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
       let(:environment) { "production" }
 
       before do
-        allow(controller).to receive(:current_actor).and_return(actor)
-        allow(controller).to receive(:current_environment).and_return(environment)
+        allow(controller).to receive_messages(current_actor: actor, current_environment: environment)
         allow(Rails.logger).to receive(:error)
       end
 
@@ -206,8 +214,7 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
       let(:environment) { "production" }
 
       before do
-        allow(controller).to receive(:current_actor).and_return(actor)
-        allow(controller).to receive(:current_environment).and_return(environment)
+        allow(controller).to receive_messages(current_actor: actor, current_environment: environment)
         allow(Rails.logger).to receive(:error)
       end
 
@@ -282,8 +289,7 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
       let(:environment) { "production" }
 
       before do
-        allow(controller).to receive(:current_actor).and_return(actor)
-        allow(controller).to receive(:current_environment).and_return(environment)
+        allow(controller).to receive_messages(current_actor: actor, current_environment: environment)
         allow(Rails.logger).to receive(:error)
       end
 
@@ -353,23 +359,13 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
       end
     end
 
-    # Test PermissionChecking concern's can_* methods directly (not PermissionsHelper's overrides)
-    # by testing on a controller that only includes PermissionChecking
-    let(:permission_checking_controller_class) do
-      Class.new(ActionController::Base) do
-        include PgSqlTriggers::KillSwitchProtection
-        include PgSqlTriggers::PermissionChecking
-      end
-    end
-
     describe "#can_view_triggers?" do
       let(:test_controller) { permission_checking_controller_class.new }
       let(:actor) { { type: "User", id: "123" } }
       let(:environment) { "production" }
 
       before do
-        allow(test_controller).to receive(:current_actor).and_return(actor)
-        allow(test_controller).to receive(:current_environment).and_return(environment)
+        allow(test_controller).to receive_messages(current_actor: actor, current_environment: environment)
       end
 
       context "when permission is granted" do
@@ -409,8 +405,7 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
       let(:environment) { "production" }
 
       before do
-        allow(test_controller).to receive(:current_actor).and_return(actor)
-        allow(test_controller).to receive(:current_environment).and_return(environment)
+        allow(test_controller).to receive_messages(current_actor: actor, current_environment: environment)
       end
 
       context "when permission is granted" do
@@ -450,8 +445,7 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
       let(:environment) { "production" }
 
       before do
-        allow(test_controller).to receive(:current_actor).and_return(actor)
-        allow(test_controller).to receive(:current_environment).and_return(environment)
+        allow(test_controller).to receive_messages(current_actor: actor, current_environment: environment)
       end
 
       context "when permission is granted" do
@@ -491,8 +485,7 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
       let(:environment) { "production" }
 
       before do
-        allow(test_controller).to receive(:current_actor).and_return(actor)
-        allow(test_controller).to receive(:current_environment).and_return(environment)
+        allow(test_controller).to receive_messages(current_actor: actor, current_environment: environment)
       end
 
       context "when permission is granted" do
@@ -532,8 +525,7 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
       let(:environment) { "production" }
 
       before do
-        allow(test_controller).to receive(:current_actor).and_return(actor)
-        allow(test_controller).to receive(:current_environment).and_return(environment)
+        allow(test_controller).to receive_messages(current_actor: actor, current_environment: environment)
       end
 
       context "when permission is granted" do
@@ -573,8 +565,7 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
       let(:environment) { "production" }
 
       before do
-        allow(test_controller).to receive(:current_actor).and_return(actor)
-        allow(test_controller).to receive(:current_environment).and_return(environment)
+        allow(test_controller).to receive_messages(current_actor: actor, current_environment: environment)
       end
 
       context "when permission is granted" do

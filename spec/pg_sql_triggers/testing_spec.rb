@@ -674,21 +674,13 @@ RSpec.describe PgSqlTriggers::Testing::FunctionTester do
       end
       # Also cause the same error in the outer rescue by making transaction raise
       allow(ActiveRecord::Base).to receive(:transaction).and_call_original
-      allow(ActiveRecord::Base).to receive(:transaction).and_wrap_original do |method, &block|
-        begin
-          method.call(&block)
-        rescue StandardError => e
-          # Re-raise to test duplicate prevention
-          raise e
-        end
-      end
 
       result = tester.test_function_only(test_context: {})
       # The error should only appear once (the check in code prevents duplicates)
       expect(result[:errors].count { |e| e == error_message }).to be <= 1
     end
 
-    it "uses function name from definition when body extraction fails" do
+    it "uses function name from definition when body extraction fails with different function name" do
       # Function body that matches pattern initially, but we'll test the fallback path
       # by using a function body that matches, then testing when definition is used as fallback
       # Actually, the body extraction should succeed, so let's test a different scenario:
@@ -850,7 +842,7 @@ RSpec.describe PgSqlTriggers::Testing::FunctionTester do
     end
 
     it "uses function name as-is when quote_string fails" do
-      original_quote_string = ActiveRecord::Base.connection.method(:quote_string)
+      ActiveRecord::Base.connection.method(:quote_string)
       allow(ActiveRecord::Base.connection).to receive(:quote_string).and_raise(StandardError, "Quote failed")
 
       result = tester.test_function_only(test_context: {})

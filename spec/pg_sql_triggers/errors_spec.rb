@@ -86,12 +86,12 @@ RSpec.describe PgSqlTriggers::Error do
         )
         hash = error.to_h
         expect(hash).to eq({
-          error_class: "PgSqlTriggers::Error",
-          error_code: "TEST_ERROR",
-          message: "Test error",
-          recovery_suggestion: "Fix it",
-          context: context
-        })
+                             error_class: "PgSqlTriggers::Error",
+                             error_code: "TEST_ERROR",
+                             message: "Test error",
+                             recovery_suggestion: "Fix it",
+                             context: context
+                           })
       end
 
       it "includes all error attributes in hash" do
@@ -531,4 +531,3 @@ RSpec.describe PgSqlTriggers::NotFoundError do
     end
   end
 end
-

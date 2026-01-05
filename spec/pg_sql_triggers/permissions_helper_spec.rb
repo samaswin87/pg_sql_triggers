@@ -316,4 +316,3 @@ RSpec.describe PgSqlTriggers::PermissionsHelper do
     end
   end
 end
-

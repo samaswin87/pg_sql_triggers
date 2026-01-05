@@ -240,12 +240,12 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
       with_kill_switch_disabled do
         # Create a scenario where introspection fails but operation continues
         allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_raise(StandardError.new("DB error"))
-        
+
         # Should log warning when Rails.logger is available
         if defined?(Rails.logger)
           expect(Rails.logger).to receive(:warn).with(/Could not check if trigger exists/)
         end
-        
+
         expect { registry.disable! }.not_to raise_error
         expect(registry.reload.enabled).to be(false)
       end
@@ -255,10 +255,11 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
       create_users_table
       with_kill_switch_disabled do
         allow_any_instance_of(PgSqlTriggers::DatabaseIntrospection).to receive(:trigger_exists?).and_return(true)
-        
+
         # Simulate database error during trigger disable
         allow(ActiveRecord::Base.connection).to receive(:execute).and_wrap_original do |original_method, sql, *args|
           raise ActiveRecord::StatementInvalid, "Disable error" if sql.to_s.match?(/ALTER TABLE.*DISABLE TRIGGER/i)
+
           original_method.call(sql, *args)
         end
 
@@ -276,7 +277,7 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
     it "handles errors when update! fails and logs warning in disable!" do
       with_kill_switch_disabled do
         allow(registry).to receive(:update!).and_raise(ActiveRecord::StatementInvalid.new("DB error"))
-        
+
         # Should log warning when Rails.logger is available
         if defined?(Rails.logger)
           expect(Rails.logger).to receive(:warn).with(/Could not update registry via update!/)
@@ -521,12 +522,12 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
     it "handles errors when checking trigger existence" do
       with_kill_switch_disabled do
         allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_raise(StandardError.new("DB error"))
-        
+
         # Should log warning when Rails.logger is available
         if defined?(Rails.logger)
           expect(Rails.logger).to receive(:warn).with(/Could not check if trigger exists/)
         end
-        
+
         expect { registry.enable! }.not_to raise_error
         expect(registry.reload.enabled).to be(true)
       end
@@ -535,11 +536,15 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
     it "handles errors when enabling trigger and logs warning" do
       create_users_table
       with_kill_switch_disabled do
-        allow_any_instance_of(PgSqlTriggers::DatabaseIntrospection).to receive(:trigger_exists?).and_return(true)
-        
+        # Stub DatabaseIntrospection to say trigger exists
+        introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+        allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+        allow(introspection).to receive(:trigger_exists?).and_return(true)
+
         # Simulate database error during trigger enable
         allow(ActiveRecord::Base.connection).to receive(:execute).and_wrap_original do |original_method, sql, *args|
           raise ActiveRecord::StatementInvalid, "Enable error" if sql.to_s.match?(/ALTER TABLE.*ENABLE TRIGGER/i)
+
           original_method.call(sql, *args)
         end
 
@@ -557,7 +562,7 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
     it "handles errors when update! fails and logs warning" do
       with_kill_switch_disabled do
         allow(registry).to receive(:update!).and_raise(ActiveRecord::StatementInvalid.new("DB error"))
-        
+
         # Should log warning when Rails.logger is available
         if defined?(Rails.logger)
           expect(Rails.logger).to receive(:warn).with(/Could not update registry via update!/)
@@ -1243,10 +1248,10 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
       it "handles nil timing by defaulting to 'before'" do
         registry.timing = nil
         checksum_with_nil = registry.send(:calculate_checksum)
-        
+
         registry.timing = "before"
         checksum_with_before = registry.send(:calculate_checksum)
-        
+
         expect(checksum_with_nil).to eq(checksum_with_before)
       end
     end
@@ -1274,7 +1279,7 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
         state = registry.send(:capture_state)
 
         expect(state).to be_a(Hash)
-        expect(state[:enabled]).to eq(true)
+        expect(state[:enabled]).to be(true)
         expect(state[:version]).to eq(5)
         expect(state[:checksum]).to eq("test_checksum")
         expect(state[:table_name]).to eq("test_table")
@@ -1453,8 +1458,9 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
         # Force recreate_trigger to fail
         allow(ActiveRecord::Base.connection).to receive(:execute).and_wrap_original do |original_method, sql, *args|
           if sql.to_s.include?("CREATE OR REPLACE FUNCTION") || sql.to_s.include?("CREATE TRIGGER")
-            raise ActiveRecord::StatementInvalid.new("SQL error")
+            raise ActiveRecord::StatementInvalid, "SQL error"
           end
+
           original_method.call(sql, *args)
         end
 
@@ -1532,9 +1538,8 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
         with_kill_switch_disabled do
           # Stub execute to raise error only for DROP TRIGGER SQL
           allow(ActiveRecord::Base.connection).to receive(:execute).and_wrap_original do |original_method, sql, *args|
-            if sql.to_s.match?(/DROP TRIGGER/i)
-              raise ActiveRecord::StatementInvalid.new("DROP failed")
-            end
+            raise ActiveRecord::StatementInvalid, "DROP failed" if sql.to_s.match?(/DROP TRIGGER/i)
+
             original_method.call(sql, *args)
           end
 
@@ -1555,12 +1560,14 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
           create_test_table(:test_table, columns: { name: :string })
 
           # Create a trigger first so drop_existing_trigger_for_re_execute has something to drop
-          allow_any_instance_of(PgSqlTriggers::DatabaseIntrospection).to receive(:trigger_exists?).and_return(true)
+          # Stub DatabaseIntrospection to say trigger exists
+          introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+          allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+          allow(introspection).to receive(:trigger_exists?).and_return(true)
 
           allow(ActiveRecord::Base.connection).to receive(:execute).and_wrap_original do |original_method, sql, *args|
-            if sql.to_s.match?(/DROP TRIGGER/i)
-              raise StandardError.new("Drop failed")
-            end
+            raise StandardError, "Drop failed" if sql.to_s.match?(/DROP TRIGGER/i)
+
             original_method.call(sql, *args)
           end
 
@@ -1669,9 +1676,13 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
           create_users_table
           allow(ActiveRecord::Base.connection).to receive(:execute).and_wrap_original do |original_method, sql, *args|
             raise ActiveRecord::StatementInvalid, "Error" if sql.to_s.match?(/ALTER TABLE.*ENABLE TRIGGER/i)
+
             original_method.call(sql, *args)
           end
-          allow_any_instance_of(PgSqlTriggers::DatabaseIntrospection).to receive(:trigger_exists?).and_return(true)
+          # Stub DatabaseIntrospection to say trigger exists
+          introspection = instance_double(PgSqlTriggers::DatabaseIntrospection)
+          allow(PgSqlTriggers::DatabaseIntrospection).to receive(:new).and_return(introspection)
+          allow(introspection).to receive(:trigger_exists?).and_return(true)
 
           # Should raise the original error, not the audit logging error
           expect { registry.enable!(actor: actor) }.to raise_error(ActiveRecord::StatementInvalid, "Error")
@@ -1684,8 +1695,10 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
     context "when AuditLog is not defined" do
       before do
         # Temporarily remove AuditLog constant
+        # rubocop:disable RSpec/RemoveConst
         @audit_log_constant = PgSqlTriggers.const_get(:AuditLog) if PgSqlTriggers.const_defined?(:AuditLog)
         PgSqlTriggers.send(:remove_const, :AuditLog) if PgSqlTriggers.const_defined?(:AuditLog)
+        # rubocop:enable RSpec/RemoveConst
       end
 
       after do

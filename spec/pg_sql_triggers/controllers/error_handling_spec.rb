@@ -16,8 +16,7 @@ RSpec.describe PgSqlTriggers::ErrorHandling, type: :controller do
   before do
     allow(Rails.logger).to receive(:error)
     allow(controller).to receive(:redirect_to)
-    allow(controller).to receive(:root_path).and_return("/")
-    allow(controller).to receive(:flash).and_return({})
+    allow(controller).to receive_messages(root_path: "/", flash: {})
   end
 
   describe "#format_error_for_flash" do
@@ -259,7 +258,7 @@ RSpec.describe PgSqlTriggers::ErrorHandling, type: :controller do
 
     before do
       allow(controller).to receive(:flash).and_return(flash)
-      allow(error).to receive(:backtrace).and_return(["line1", "line2"])
+      allow(error).to receive(:backtrace).and_return(%w[line1 line2])
     end
 
     context "when redirect_path is provided" do
@@ -341,4 +340,3 @@ RSpec.describe PgSqlTriggers::ErrorHandling, type: :controller do
     end
   end
 end
-
