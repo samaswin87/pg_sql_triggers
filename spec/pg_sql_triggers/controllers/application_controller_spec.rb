@@ -98,7 +98,7 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
     # Test PermissionChecking concern's can_* methods directly (not PermissionsHelper's overrides)
     # by testing on a controller that only includes PermissionChecking
     let(:permission_checking_controller_class) do
-      Class.new(ApplicationController) do
+      Class.new(PgSqlTriggers::ApplicationController) do
         include PgSqlTriggers::KillSwitchProtection
         include PgSqlTriggers::PermissionChecking
       end
@@ -531,7 +531,7 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
       context "when permission is granted" do
         before do
           allow(PgSqlTriggers::Permissions).to receive(:can?)
-            .with(actor, :apply_trigger, environment: environment)
+            .with(actor, :generate_trigger, environment: environment)
             .and_return(true)
         end
 
@@ -542,14 +542,14 @@ RSpec.describe PgSqlTriggers::ApplicationController, type: :controller do
         it "calls Permissions.can? with correct arguments" do
           test_controller.send(:can_generate_triggers?)
           expect(PgSqlTriggers::Permissions).to have_received(:can?)
-            .with(actor, :apply_trigger, environment: environment)
+            .with(actor, :generate_trigger, environment: environment)
         end
       end
 
       context "when permission is denied" do
         before do
           allow(PgSqlTriggers::Permissions).to receive(:can?)
-            .with(actor, :apply_trigger, environment: environment)
+            .with(actor, :generate_trigger, environment: environment)
             .and_return(false)
         end
 

@@ -1746,7 +1746,7 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
 
         # When logger is nil but defined, it will raise NoMethodError
         # This documents the current behavior - the code assumes logger exists if defined
-        expect { registry.send(:log_drop_attempt, "Test reason") }.to raise_error(NoMethodError, /undefined method 'info' for nil/)
+        expect { registry.send(:log_drop_attempt, "Test reason") }.to raise_error(NoMethodError, /undefined method [`']info['`] for nil/)
       ensure
         drop_test_table(:test_table)
       end
@@ -1756,7 +1756,7 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
       with_kill_switch_disabled do
         # Similar to above - documents current behavior
         allow(Rails).to receive(:logger).and_return(nil) if defined?(Rails.logger)
-        expect { registry.send(:log_drop_success) }.to raise_error(NoMethodError, /undefined method 'info' for nil/)
+        expect { registry.send(:log_drop_success) }.to raise_error(NoMethodError, /undefined method [`']info['`] for nil/)
       end
     end
 
@@ -1769,7 +1769,7 @@ RSpec.describe PgSqlTriggers::TriggerRegistry do
 
         # Similar to above - documents current behavior
         allow(Rails).to receive(:logger).and_return(nil) if defined?(Rails.logger)
-        expect { registry.send(:log_re_execute_attempt, "Test reason") }.to raise_error(NoMethodError, /undefined method 'info' for nil/)
+        expect { registry.send(:log_re_execute_attempt, "Test reason") }.to raise_error(NoMethodError, /undefined method [`']info['`] for nil/)
       ensure
         drop_test_table(:test_table)
       end
